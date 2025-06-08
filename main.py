@@ -3,7 +3,6 @@ from typing import Dict
 
 import torch
 import torch.optim as optim
-from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import save_image
@@ -16,68 +15,88 @@ from dataset import SDSS
 
 def train(modelConfig: Dict):
     device = torch.device(modelConfig["device"])
-    # dataset
+
+    # Dataset setup
     astronomical_transform = transforms.Compose([
-        # deal with NaN and extreme value
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
         transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
-
-        # [H,W,C] -> [C,H,W]
         transforms.Lambda(lambda x: np.transpose(x, (2, 0, 1))),
-
-        # log compression dynamic range
         transforms.Lambda(lambda x: np.log1p(x)),
-
-        # turn to Tensor
         transforms.ToTensor(),
-
-        # Normalization based on data statistics (pre-calculation required)
         transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
                              std=[0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607])
     ])
 
     dataset = SDSS(transform=astronomical_transform)
     dataloader = DataLoader(
-        dataset, batch_size=modelConfig["batch_size"], shuffle=True, num_workers=4, drop_last=True, pin_memory=True)
+        dataset, batch_size=modelConfig["batch_size"], shuffle=True,
+        num_workers=4, drop_last=True, pin_memory=True)
 
-    # model setup
-    net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"], ch_mult=modelConfig["channel_mult"],
-                     attn=modelConfig["attn"],
-                     num_res_blocks=modelConfig["num_res_blocks"], dropout=modelConfig["dropout"]).to(device)
+    # Model initialization
+    net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"],
+                     ch_mult=modelConfig["channel_mult"], attn=modelConfig["attn"],
+                     num_res_blocks=modelConfig["num_res_blocks"],
+                     dropout=modelConfig["dropout"]).to(device)
+
     if modelConfig["training_load_weight"] is not None:
-        net_model.load_state_dict(torch.load(os.path.join(
-            modelConfig["save_weight_dir"], modelConfig["training_load_weight"]), map_location=device))
+        net_model.load_state_dict(torch.load(
+            os.path.join(modelConfig["save_weight_dir"],
+                         modelConfig["training_load_weight"]),
+            map_location=device))
+
+    # Optimizer setup
     optimizer = torch.optim.AdamW(
         net_model.parameters(), lr=modelConfig["lr"], weight_decay=1e-4)
     cosineScheduler = optim.lr_scheduler.CosineAnnealingLR(
         optimizer=optimizer, T_max=modelConfig["epoch"], eta_min=0, last_epoch=-1)
     warmUpScheduler = GradualWarmupScheduler(
-        optimizer=optimizer, multiplier=modelConfig["multiplier"], warm_epoch=modelConfig["epoch"] // 10,
-        after_scheduler=cosineScheduler)
-    trainer = GaussianDiffusionTrainer(
-        net_model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
+        optimizer=optimizer, multiplier=modelConfig["multiplier"],
+        warm_epoch=modelConfig["epoch"] // 10, after_scheduler=cosineScheduler)
 
-    # start training
-    for e in range(modelConfig["epoch"]):
-        with tqdm(dataloader, dynamic_ncols=True) as tqdmDataLoader:
-            for images, labels in tqdmDataLoader:
-                # train
-                optimizer.zero_grad()
-                x_0 = images.to(device)
-                loss = trainer(x_0).sum() / 1000.
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(
-                    net_model.parameters(), modelConfig["grad_clip"])
-                optimizer.step()
-                tqdmDataLoader.set_postfix(ordered_dict={
-                    "epoch": e,
-                    "loss: ": loss.item(),
-                    "img shape: ": x_0.shape,
-                    "LR": optimizer.state_dict()['param_groups'][0]["lr"]
-                })
+    trainer = GaussianDiffusionTrainer(
+        net_model, modelConfig["beta_1"], modelConfig["beta_T"],
+        modelConfig["T"]).to(device)
+
+    # Training loop
+    print(f"Training started for {modelConfig['epoch']} epochs")
+    for epoch in range(modelConfig["epoch"]):
+        epoch_loss = 0.0
+        batch_count = 0
+
+        for batch_idx, (images, _) in enumerate(dataloader):
+            optimizer.zero_grad()
+            x_0 = images.to(device)
+            loss = trainer(x_0).sum() / 1000.
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(
+                net_model.parameters(), modelConfig["grad_clip"])
+            optimizer.step()
+
+            epoch_loss += loss.item()
+            batch_count += 1
+
+            # Print batch progress every 10% of dataset
+            if batch_idx % max(1, len(dataloader) // 10) == 0:
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f"Epoch {epoch + 1}/{modelConfig['epoch']} | "
+                      f"Batch {batch_idx}/{len(dataloader)} | "
+                      f"Batch Loss: {loss.item():.4f} | "
+                      f"LR: {current_lr:.2e}")
+
         warmUpScheduler.step()
-        torch.save(net_model.state_dict(), os.path.join(
-            modelConfig["save_weight_dir"], 'ckpt_' + str(e) + "_.pt"))
+
+        # Epoch summary
+        avg_epoch_loss = epoch_loss / batch_count
+        print(f"Epoch {epoch + 1} completed | "
+              f"Avg Loss: {avg_epoch_loss:.4f} | "
+              f"LR: {optimizer.param_groups[0]['lr']:.2e}")
+
+        # Save checkpoint
+        torch.save(net_model.state_dict(),
+                   os.path.join(modelConfig["save_weight_dir"],
+                                f'ckpt_{epoch}_.pt'))
+
+    print("Training completed successfully")
 
 
 def eval(modelConfig: Dict):
