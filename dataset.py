@@ -1,23 +1,13 @@
-import argparse
-
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-parser = argparse.ArgumentParser()
-
-parser.add_argument("sdss_path", help="Path of SDSS dataset")
-parser.add_argument("properties_path", help="Path of selected properties from SDSS dataset")
-args = parser.parse_args()
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class SDSS(Dataset):
     def __init__(self, transform=None):
-        self.image_path = args.sdss_path
-        self.properties_path = args.properties_path
+        self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
+        self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
         self.transform = transform
 
         with np.load(self.image_path, mmap_mode='r') as sdss:
