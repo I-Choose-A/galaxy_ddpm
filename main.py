@@ -6,7 +6,6 @@ import torch.optim as optim
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.datasets import CIFAR10
 from torchvision.utils import save_image
 import numpy as np
 from diffusion import GaussianDiffusionSampler, GaussianDiffusionTrainer
@@ -18,12 +17,13 @@ from dataset import SDSS
 def train(modelConfig: Dict):
     device = torch.device(modelConfig["device"])
     # dataset
-    from torchvision import transforms
-
     astronomical_transform = transforms.Compose([
         # deal with NaN and extreme value
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
         transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
+
+        # [H,W,C] -> [C,H,W]
+        transforms.Lambda(lambda x: np.transpose(x, (2, 0, 1))),
 
         # log compression dynamic range
         transforms.Lambda(lambda x: np.log1p(x)),
@@ -32,7 +32,8 @@ def train(modelConfig: Dict):
         transforms.ToTensor(),
 
         # Normalization based on data statistics (pre-calculation required)
-        transforms.Normalize(mean=[0.2], std=[0.5])
+        transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
+                             std=[0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607])
     ])
 
     dataset = SDSS(transform=astronomical_transform)
@@ -108,7 +109,7 @@ def eval(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or eval
-        "epoch": 200,
+        "epoch": 2,
         "batch_size": 80,
         "T": 1000,
         "channel": 128,
@@ -120,7 +121,7 @@ if __name__ == '__main__':
         "multiplier": 2.,
         "beta_1": 1e-4,
         "beta_T": 0.02,
-        "img_size": 32,
+        "img_size": 64,
         "grad_clip": 1.,
         "device": "cuda:0",  ### MAKE SURE YOU HAVE A GPU !!!
         "training_load_weight": None,
