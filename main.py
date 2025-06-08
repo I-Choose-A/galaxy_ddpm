@@ -18,15 +18,24 @@ from dataset import SDSS
 def train(modelConfig: Dict):
     device = torch.device(modelConfig["device"])
     # dataset
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Lambda(lambda x: x.astype(np.float32)),  # 确保数据类型
-        # 天文图像特定的归一化（如对数缩放）
+    from torchvision import transforms
+
+    astronomical_transform = transforms.Compose([
+        # deal with NaN and extreme value
+        transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
+        transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
+
+        # log compression dynamic range
         transforms.Lambda(lambda x: np.log1p(x)),
+
+        # turn to Tensor
         transforms.ToTensor(),
-        transforms.Normalize(mean=[...], std=[...])  # 根据数据统计设置
+
+        # Normalization based on data statistics (pre-calculation required)
+        transforms.Normalize(mean=[0.2], std=[0.5])
     ])
-    dataset = SDSS()
+
+    dataset = SDSS(transform=astronomical_transform)
     dataloader = DataLoader(
         dataset, batch_size=modelConfig["batch_size"], shuffle=True, num_workers=4, drop_last=True, pin_memory=True)
 

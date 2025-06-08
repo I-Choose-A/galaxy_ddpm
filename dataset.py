@@ -15,9 +15,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class SDSS(Dataset):
-    def __init__(self):
+    def __init__(self, transform=None):
         self.image_path = args.sdss_path
         self.properties_path = args.properties_path
+        self.transform = transform
 
         with np.load(self.image_path, mmap_mode='r') as sdss:
             self.images = sdss["cube"]
@@ -31,7 +32,12 @@ class SDSS(Dataset):
         image = self.images[imageID]
         properties = self.properties_df.iloc[item, 1:].to_numpy()
 
+        # turn to tensor
         image = torch.from_numpy(image)
         properties = torch.from_numpy(properties)
+
+        # use transform）
+        if self.transform:
+            image = self.transform(image)
 
         return image, properties
