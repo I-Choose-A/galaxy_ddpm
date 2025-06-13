@@ -6,10 +6,10 @@ from torch.utils.data import Dataset
 
 class SDSS(Dataset):
     def __init__(self, transform=None):
-        # self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
-        # self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
-        self.image_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz"
-        self.properties_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv"
+        self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
+        self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
+        # self.image_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz" # local use
+        # self.properties_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv" # local use
         self.transform = transform
 
         with np.load(self.image_path, mmap_mode='r') as sdss:
@@ -18,10 +18,12 @@ class SDSS(Dataset):
 
     def __len__(self):
         return len(self.properties_df)
+        # return 10 # local use
 
     def __getitem__(self, item):
         imageID = self.properties_df.iloc[item, 0]
         image = self.images[imageID]
+        # image = self.images[item] # local use
         properties = self.properties_df.iloc[item, 1:].to_numpy()
 
         # turn to tensor

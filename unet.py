@@ -165,7 +165,8 @@ class UNet(nn.Module):
         tdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
 
-        self.head = nn.Conv2d(3, ch, kernel_size=3, stride=1, padding=1)
+        # self.head = nn.Conv2d(3, ch, kernel_size=3, stride=1, padding=1)
+        self.head = nn.Conv2d(5, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()
         chs = [ch]  # record output channel when dowmsample for upsample
         now_ch = ch
@@ -201,7 +202,8 @@ class UNet(nn.Module):
         self.tail = nn.Sequential(
             nn.GroupNorm(32, now_ch),
             Swish(),
-            nn.Conv2d(now_ch, 3, 3, stride=1, padding=1)
+            # nn.Conv2d(now_ch, 3, 3, stride=1, padding=1)
+            nn.Conv2d(now_ch, 5, 3, stride=1, padding=1)
         )
         self.initialize()
 

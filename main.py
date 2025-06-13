@@ -29,7 +29,7 @@ def train(modelConfig: Dict):
     dataset = SDSS(transform=astronomical_transform)
     dataloader = DataLoader(
         dataset, batch_size=modelConfig["batch_size"], shuffle=True,
-        num_workers=1, drop_last=True, pin_memory=True)
+        num_workers=0, drop_last=True, pin_memory=True)
 
     # Model initialization
     net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"],
@@ -114,7 +114,8 @@ def eval(modelConfig: Dict):
             model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
         # Sampled from standard normal distribution
         noisyImage = torch.randn(
-            size=[modelConfig["batch_size"], 3, 32, 32], device=device)
+            # size=[modelConfig["batch_size"], 3, 32, 32], device=device)
+            size=[modelConfig["batch_size"], 5, 64, 64], device=device)
         saveNoisy = torch.clamp(noisyImage * 0.5 + 0.5, 0, 1)
         save_image(saveNoisy, os.path.join(
             modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]), nrow=modelConfig["nrow"])
@@ -127,8 +128,9 @@ def eval(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or eval
-        "epoch": 2,
-        "batch_size": 80,
+        "epoch": 200,
+        # "batch_size": 80,
+        "batch_size": 1024,
         "T": 1000,
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
