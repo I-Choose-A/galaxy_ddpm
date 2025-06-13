@@ -75,7 +75,7 @@ class UpSample(nn.Module):
         return x
 
 
-class AttnBlock(nn.Module):
+class AttnBlock(nn.Module): # may be not usable
     def __init__(self, in_ch):
         super().__init__()
         self.group_norm = nn.GroupNorm(32, in_ch)

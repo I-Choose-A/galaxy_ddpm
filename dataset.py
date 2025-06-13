@@ -6,8 +6,10 @@ from torch.utils.data import Dataset
 
 class SDSS(Dataset):
     def __init__(self, transform=None):
-        self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
-        self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
+        # self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
+        # self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
+        self.image_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz"
+        self.properties_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv"
         self.transform = transform
 
         with np.load(self.image_path, mmap_mode='r') as sdss:
@@ -26,7 +28,7 @@ class SDSS(Dataset):
         image = torch.from_numpy(image)
         properties = torch.from_numpy(properties)
 
-        # use transform）
+        # use transform
         if self.transform:
             image = self.transform(image)
 

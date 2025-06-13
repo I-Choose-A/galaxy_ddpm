@@ -8,10 +8,11 @@
 #$ -m ea
 #$ -M xinyuan.chen.24@ucl.ac.uk
 
-module unload gcc-libs
+unset PYTHONPATH
+module purge
 
-module load python3/3.9-gnu-10.2.0
-
-module load pytorch/2.1.0/gpu
+module load python/miniconda3/24.3.0-0
+source $UCL_CONDA_PATH/etc/profile.d/conda.sh
+conda activate galaxy
 
 python main.py

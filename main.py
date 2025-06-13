@@ -20,7 +20,6 @@ def train(modelConfig: Dict):
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
         transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
-        transforms.Lambda(lambda x: np.transpose(x, (2, 0, 1))),
         transforms.Lambda(lambda x: np.log1p(x)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
@@ -30,7 +29,7 @@ def train(modelConfig: Dict):
     dataset = SDSS(transform=astronomical_transform)
     dataloader = DataLoader(
         dataset, batch_size=modelConfig["batch_size"], shuffle=True,
-        num_workers=4, drop_last=True, pin_memory=True)
+        num_workers=1, drop_last=True, pin_memory=True)
 
     # Model initialization
     net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"],
