@@ -128,9 +128,9 @@ def eval(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or eval
-        "epoch": 200,
-        # "batch_size": 80,
-        "batch_size": 1024,
+        "epoch": 100,
+        # "batch_size": 1024,
+        "batch_size": 2,  # local use
         "T": 1000,
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         "beta_T": 0.02,
         "img_size": 64,
         "grad_clip": 1.,
-        "device": "cuda:0",  ### MAKE SURE YOU HAVE A GPU !!!
+        "device": "cuda:0",
         "training_load_weight": None,
         "save_weight_dir": "./Checkpoints/",
         "test_load_weight": "ckpt_199_.pt",
