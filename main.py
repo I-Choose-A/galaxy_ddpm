@@ -126,8 +126,8 @@ def train(modelConfig: Dict):
     print("Training completed successfully")
 
 
-def eval(modelConfig: Dict):
-    # load model and evaluate
+def sampling(modelConfig: Dict):
+    # load model and sampling
     with torch.no_grad():
         device = torch.device(modelConfig["device"])
         model = UNet(
@@ -169,13 +169,13 @@ def eval(modelConfig: Dict):
 
 if __name__ == '__main__':
     modelConfig = {
-        "state": "train",  # or eval
+        "state": "train",  # or sampling
         "epoch": 100,
         # "batch_size": 1024,
         "batch_size": 2,  # local use
         "T": 1000,
         "num_img_channel": 1,
-        "selected_channel": ["z", "r", "i"],
+        "selected_channel": ["z"],
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
         "num_res_blocks": 2,
@@ -206,4 +206,4 @@ if __name__ == '__main__':
     if modelConfig["state"] == "train":
         train(modelConfig)
     else:
-        eval(modelConfig)
+        sampling(modelConfig)
