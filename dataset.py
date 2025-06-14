@@ -5,33 +5,40 @@ from torch.utils.data import Dataset
 
 
 class SDSS(Dataset):
-    def __init__(self, transform=None):
-        # self.image_path = r"/home/ucaphey/Scratch/sdss.npz"
-        # self.properties_path = r"/home/ucaphey/Scratch/sdss_selected_properties.csv"
-        self.image_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz"  # local use
-        self.properties_path = r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv"  # local use
+    def __init__(self, images_path, conditions_path, channels=None, transform=None):
+        self.images_path = images_path
+        self.conditions_path = conditions_path
         self.transform = transform
 
-        with np.load(self.image_path, mmap_mode='r') as sdss:
+        self.original_channels = ["u", "g", "r", "i", "z"]
+        if channels:
+            self.channels = [self.original_channels.index(ch) for ch in channels]
+        else:
+            self.channels = [0, 1, 2, 3, 4]
+
+        with np.load(self.images_path, mmap_mode='r') as sdss:
             self.images = sdss["cube"]
-        self.properties_df = pd.read_csv(self.properties_path)
+        self.conditions_df = pd.read_csv(self.conditions_path)
 
     def __len__(self):
-        # return len(self.properties_df)
+        # return len(self.conditions_df)
         return 10  # local use
 
     def __getitem__(self, item):
-        imageID = self.properties_df.iloc[item, 0]
+        imageID = self.conditions_df.iloc[item, 0]
         # image = self.images[imageID]
         image = self.images[item]  # local use
-        properties = self.properties_df.iloc[item, 1:].to_numpy()
+        condition = self.conditions_df.iloc[item, 1:].to_numpy()
 
         # turn to tensor
         image = torch.from_numpy(image)
-        properties = torch.from_numpy(properties)
+        condition = torch.from_numpy(condition)
 
         # use transform
         if self.transform:
             image = self.transform(image)
 
-        return image, properties
+        # select needed channels
+        image = image[self.channels, :, :]
+
+        return image, condition

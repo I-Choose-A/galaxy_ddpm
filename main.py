@@ -26,7 +26,12 @@ def train(modelConfig: Dict):
                              std=[0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607])
     ])
 
-    dataset = SDSS(transform=astronomical_transform)
+    dataset = SDSS(
+        images_path=modelConfig["images_path"],
+        conditions_path=modelConfig["conditions_path"],
+        channels=modelConfig["selected_channel"],
+        transform=astronomical_transform,
+    )
     dataloader = DataLoader(
         dataset,
         batch_size=modelConfig["batch_size"],
@@ -39,7 +44,7 @@ def train(modelConfig: Dict):
     # Model initialization
     net_model = UNet(
         T=modelConfig["T"],
-        img_ch=modelConfig["image_channel"],
+        img_ch=modelConfig["num_img_channel"],
         ch=modelConfig["channel"],
         ch_mult=modelConfig["channel_mult"],
         num_res_blocks=modelConfig["num_res_blocks"],
@@ -127,7 +132,7 @@ def eval(modelConfig: Dict):
         device = torch.device(modelConfig["device"])
         model = UNet(
             T=modelConfig["T"],
-            img_ch=modelConfig["image_channel"],
+            img_ch=modelConfig["num_img_channel"],
             ch=modelConfig["channel"],
             ch_mult=modelConfig["channel_mult"],
             num_res_blocks=modelConfig["num_res_blocks"],
@@ -146,16 +151,20 @@ def eval(modelConfig: Dict):
         ).to(device)
         # Sampled from standard normal distribution
         noisyImage = torch.randn(
-            size=[modelConfig["batch_size"], modelConfig["image_channel"], 64, 64],
+            size=[modelConfig["batch_size"], modelConfig["num_img_channel"], 64, 64],
             device=device
         )
         saveNoisy = torch.clamp(noisyImage * 0.5 + 0.5, 0, 1)
-        save_image(saveNoisy, os.path.join(modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]),
-                   nrow=modelConfig["nrow"])
+        save_image(
+            saveNoisy,
+            os.path.join(modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]),
+            nrow=modelConfig["nrow"])
         sampledImgs = sampler(noisyImage)
         sampledImgs = sampledImgs * 0.5 + 0.5  # [0 ~ 1]
-        save_image(sampledImgs, os.path.join(modelConfig["sampled_dir"], modelConfig["sampledImgName"]),
-                   nrow=modelConfig["nrow"])
+        save_image(
+            sampledImgs,
+            os.path.join(modelConfig["sampled_dir"], modelConfig["sampledImgName"]),
+            nrow=modelConfig["nrow"])
 
 
 if __name__ == '__main__':
@@ -165,7 +174,8 @@ if __name__ == '__main__':
         # "batch_size": 1024,
         "batch_size": 2,  # local use
         "T": 1000,
-        "image_channel": 1,
+        "num_img_channel": 1,
+        "selected_channel": ["z", "r", "i"],
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
         "num_res_blocks": 2,
@@ -183,7 +193,14 @@ if __name__ == '__main__':
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
-        "nrow": 8
+        "nrow": 8,
+
+        # myriad use
+        # "images_path": r"/home/ucaphey/Scratch/sdss.npz",
+        # "conditions_path": r"/home/ucaphey/Scratch/sdss_selected_properties.csv",
+        # local use
+        "images_path": r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz",
+        "conditions_path": r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv",
     }
 
     if modelConfig["state"] == "train":
