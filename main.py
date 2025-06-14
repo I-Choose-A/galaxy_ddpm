@@ -28,33 +28,56 @@ def train(modelConfig: Dict):
 
     dataset = SDSS(transform=astronomical_transform)
     dataloader = DataLoader(
-        dataset, batch_size=modelConfig["batch_size"], shuffle=True,
-        num_workers=0, drop_last=True, pin_memory=True)
+        dataset,
+        batch_size=modelConfig["batch_size"],
+        shuffle=True,
+        num_workers=0,
+        drop_last=True,
+        pin_memory=True
+    )
 
     # Model initialization
-    net_model = UNet(T=modelConfig["T"], ch=modelConfig["channel"],
-                     ch_mult=modelConfig["channel_mult"], attn=modelConfig["attn"],
-                     num_res_blocks=modelConfig["num_res_blocks"],
-                     dropout=modelConfig["dropout"]).to(device)
+    net_model = UNet(
+        T=modelConfig["T"],
+        img_ch=modelConfig["image_channel"],
+        ch=modelConfig["channel"],
+        ch_mult=modelConfig["channel_mult"],
+        attn=modelConfig["attn"],
+        num_res_blocks=modelConfig["num_res_blocks"],
+        dropout=modelConfig["dropout"]
+    ).to(device)
 
     if modelConfig["training_load_weight"] is not None:
-        net_model.load_state_dict(torch.load(
-            os.path.join(modelConfig["save_weight_dir"],
-                         modelConfig["training_load_weight"]),
-            map_location=device))
+        net_model.load_state_dict(
+            torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]),
+                       map_location=device))
 
     # Optimizer setup
     optimizer = torch.optim.AdamW(
-        net_model.parameters(), lr=modelConfig["lr"], weight_decay=1e-4)
+        net_model.parameters(),
+        lr=modelConfig["lr"],
+        weight_decay=1e-4
+    )
+
     cosineScheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer=optimizer, T_max=modelConfig["epoch"], eta_min=0, last_epoch=-1)
+        optimizer=optimizer,
+        T_max=modelConfig["epoch"],
+        eta_min=0,
+        last_epoch=-1
+    )
     warmUpScheduler = GradualWarmupScheduler(
-        optimizer=optimizer, multiplier=modelConfig["multiplier"],
-        warm_epoch=modelConfig["epoch"] // 10, after_scheduler=cosineScheduler)
+        optimizer=optimizer,
+        multiplier=modelConfig["multiplier"],
+        warm_epoch=modelConfig["epoch"] // 10,
+        after_scheduler=cosineScheduler
+    )
 
     trainer = GaussianDiffusionTrainer(
-        net_model, modelConfig["beta_1"], modelConfig["beta_T"],
-        modelConfig["T"]).to(device)
+        net_model,
+        modelConfig["beta_1"],
+        modelConfig["beta_T"],
+        modelConfig["T"]
+    ).to(device)
 
     # Training loop
     print(f"Training started for {modelConfig['epoch']} epochs")
@@ -90,10 +113,11 @@ def train(modelConfig: Dict):
               f"Avg Loss: {avg_epoch_loss:.4f} | "
               f"LR: {optimizer.param_groups[0]['lr']:.2e}")
 
-        # Save checkpoint
-        torch.save(net_model.state_dict(),
-                   os.path.join(modelConfig["save_weight_dir"],
-                                f'ckpt_{epoch}_.pt'))
+        # Save checkpoint, only save last checkpoint
+        if epoch == modelConfig["epoch"] - 1:
+            torch.save(net_model.state_dict(),
+                       os.path.join(modelConfig["save_weight_dir"],
+                                    f'ckpt_{epoch}_.pt'))
 
     print("Training completed successfully")
 
@@ -102,27 +126,38 @@ def eval(modelConfig: Dict):
     # load model and evaluate
     with torch.no_grad():
         device = torch.device(modelConfig["device"])
-        model = UNet(T=modelConfig["T"], ch=modelConfig["channel"], ch_mult=modelConfig["channel_mult"],
-                     attn=modelConfig["attn"],
-                     num_res_blocks=modelConfig["num_res_blocks"], dropout=0.)
-        ckpt = torch.load(os.path.join(
-            modelConfig["save_weight_dir"], modelConfig["test_load_weight"]), map_location=device)
+        model = UNet(
+            T=modelConfig["T"],
+            img_ch=modelConfig["image_channel"],
+            ch=modelConfig["channel"],
+            ch_mult=modelConfig["channel_mult"],
+            attn=modelConfig["attn"],
+            num_res_blocks=modelConfig["num_res_blocks"],
+            dropout=0.
+        )
+        ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]),
+                          map_location=device)
         model.load_state_dict(ckpt)
         print("model load weight done.")
         model.eval()
         sampler = GaussianDiffusionSampler(
-            model, modelConfig["beta_1"], modelConfig["beta_T"], modelConfig["T"]).to(device)
+            model,
+            modelConfig["beta_1"],
+            modelConfig["beta_T"],
+            modelConfig["T"]
+        ).to(device)
         # Sampled from standard normal distribution
         noisyImage = torch.randn(
-            # size=[modelConfig["batch_size"], 3, 32, 32], device=device)
-            size=[modelConfig["batch_size"], 5, 64, 64], device=device)
+            size=[modelConfig["batch_size"], modelConfig["image_channel"], 64, 64],
+            device=device
+        )
         saveNoisy = torch.clamp(noisyImage * 0.5 + 0.5, 0, 1)
-        save_image(saveNoisy, os.path.join(
-            modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]), nrow=modelConfig["nrow"])
+        save_image(saveNoisy, os.path.join(modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]),
+                   nrow=modelConfig["nrow"])
         sampledImgs = sampler(noisyImage)
         sampledImgs = sampledImgs * 0.5 + 0.5  # [0 ~ 1]
-        save_image(sampledImgs, os.path.join(
-            modelConfig["sampled_dir"], modelConfig["sampledImgName"]), nrow=modelConfig["nrow"])
+        save_image(sampledImgs, os.path.join(modelConfig["sampled_dir"], modelConfig["sampledImgName"]),
+                   nrow=modelConfig["nrow"])
 
 
 if __name__ == '__main__':
@@ -132,6 +167,7 @@ if __name__ == '__main__':
         # "batch_size": 1024,
         "batch_size": 2,  # local use
         "T": 1000,
+        "image_channel": 1,
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
         "attn": [2],

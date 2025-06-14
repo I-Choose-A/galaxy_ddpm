@@ -75,7 +75,7 @@ class UpSample(nn.Module):
         return x
 
 
-class AttnBlock(nn.Module): # may be not usable
+class AttnBlock(nn.Module):  # may be not usable
     def __init__(self, in_ch):
         super().__init__()
         self.group_norm = nn.GroupNorm(32, in_ch)
@@ -159,14 +159,14 @@ class ResBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, T, ch, ch_mult, attn, num_res_blocks, dropout):
+    def __init__(self, T, img_ch, ch, ch_mult, attn, num_res_blocks, dropout):
         super().__init__()
         assert all([i < len(ch_mult) for i in attn]), 'attn index out of bound'
         tdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
 
         # self.head = nn.Conv2d(3, ch, kernel_size=3, stride=1, padding=1)
-        self.head = nn.Conv2d(5, ch, kernel_size=3, stride=1, padding=1)
+        self.head = nn.Conv2d(img_ch, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()
         chs = [ch]  # record output channel when dowmsample for upsample
         now_ch = ch
@@ -202,8 +202,7 @@ class UNet(nn.Module):
         self.tail = nn.Sequential(
             nn.GroupNorm(32, now_ch),
             Swish(),
-            # nn.Conv2d(now_ch, 3, 3, stride=1, padding=1)
-            nn.Conv2d(now_ch, 5, 3, stride=1, padding=1)
+            nn.Conv2d(now_ch, img_ch, 3, stride=1, padding=1)
         )
         self.initialize()
 
