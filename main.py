@@ -19,7 +19,7 @@ def train(modelConfig: Dict):
     # Dataset setup
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
-        transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
+        transforms.Lambda(lambda x: np.clip(x, -10, 10000)),
         transforms.Lambda(lambda x: np.log1p(x)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
@@ -94,8 +94,7 @@ def train(modelConfig: Dict):
             x_0 = images.to(device)
             loss = trainer(x_0).sum() / 1000.
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                net_model.parameters(), modelConfig["grad_clip"])
+            torch.nn.utils.clip_grad_norm_(net_model.parameters(), modelConfig["grad_clip"])
             optimizer.step()
 
             epoch_loss += loss.item()
