@@ -5,7 +5,6 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from torchvision.utils import save_image
 import numpy as np
 from diffusion import GaussianDiffusionSampler, GaussianDiffusionTrainer
 from unet import UNet
@@ -19,7 +18,7 @@ def train(modelConfig: Dict):
     # Dataset setup
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
-        transforms.Lambda(lambda x: np.clip(x, -10, 10000)),
+        transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
         transforms.Lambda(lambda x: np.log1p(x)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
@@ -94,7 +93,8 @@ def train(modelConfig: Dict):
             x_0 = images.to(device)
             loss = trainer(x_0).sum() / 1000.
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(net_model.parameters(), modelConfig["grad_clip"])
+            torch.nn.utils.clip_grad_norm_(
+                net_model.parameters(), modelConfig["grad_clip"])
             optimizer.step()
 
             epoch_loss += loss.item()
@@ -125,6 +125,21 @@ def train(modelConfig: Dict):
     print("Training completed successfully")
 
 
+def inverse_astronomical_transform(tensor):
+    """Inverse transformation: restoring the original astronomical data from the normalized tensor"""
+    # inverse normalization
+    mean = torch.tensor([0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
+                        device=tensor.device)
+    std = torch.tensor([0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607],
+                       device=tensor.device)
+    denormalized = tensor * std.view(1, -1, 1, 1) + mean.view(1, -1, 1, 1)
+
+    # inverse Log1p
+    denormalized = torch.expm1(denormalized)  # exp(x) - 1
+
+    return denormalized
+
+
 def sampling(modelConfig: Dict):
     # load model and sampling
     with torch.no_grad():
@@ -153,17 +168,20 @@ def sampling(modelConfig: Dict):
             size=[modelConfig["batch_size"], modelConfig["num_img_channel"], 64, 64],
             device=device
         )
-        saveNoisy = torch.clamp(noisyImage * 0.5 + 0.5, 0, 1)
-        save_image(
-            saveNoisy,
-            os.path.join(modelConfig["sampled_dir"], modelConfig["sampledNoisyImgName"]),
-            nrow=modelConfig["nrow"])
+
         sampledImgs = sampler(noisyImage)
-        sampledImgs = sampledImgs * 0.5 + 0.5  # [0 ~ 1]
-        save_image(
-            sampledImgs,
-            os.path.join(modelConfig["sampled_dir"], modelConfig["sampledImgName"]),
-            nrow=modelConfig["nrow"])
+
+        # Inverse transform: restoring the original astronomical data dimensions
+        sampledImgs = inverse_astronomical_transform(sampledImgs)
+
+        # save to .npy
+        output_dir = modelConfig["sampled_dir"]
+        os.makedirs(output_dir, exist_ok=True)
+        np.save(
+            os.path.join(output_dir, "sampled_imgs.npy"),
+            sampledImgs.cpu().numpy()
+        )
+        print(f"Saved raw astronomical data to {output_dir}")
 
 
 if __name__ == '__main__':
@@ -192,7 +210,6 @@ if __name__ == '__main__':
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
-        "nrow": 8,
 
         # myriad use
         # "images_path": r"/home/ucaphey/Scratch/sdss.npz",
