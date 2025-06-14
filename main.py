@@ -42,7 +42,6 @@ def train(modelConfig: Dict):
         img_ch=modelConfig["image_channel"],
         ch=modelConfig["channel"],
         ch_mult=modelConfig["channel_mult"],
-        attn=modelConfig["attn"],
         num_res_blocks=modelConfig["num_res_blocks"],
         dropout=modelConfig["dropout"]
     ).to(device)
@@ -131,7 +130,6 @@ def eval(modelConfig: Dict):
             img_ch=modelConfig["image_channel"],
             ch=modelConfig["channel"],
             ch_mult=modelConfig["channel_mult"],
-            attn=modelConfig["attn"],
             num_res_blocks=modelConfig["num_res_blocks"],
             dropout=0.
         )
@@ -170,7 +168,6 @@ if __name__ == '__main__':
         "image_channel": 1,
         "channel": 128,
         "channel_mult": [1, 2, 3, 4],
-        "attn": [2],
         "num_res_blocks": 2,
         "dropout": 0.15,
         "lr": 1e-4,
