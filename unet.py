@@ -75,46 +75,8 @@ class UpSample(nn.Module):
         return x
 
 
-class AttnBlock(nn.Module):  # may be not usable
-    def __init__(self, in_ch):
-        super().__init__()
-        self.group_norm = nn.GroupNorm(32, in_ch)
-        self.proj_q = nn.Conv2d(in_ch, in_ch, 1, stride=1, padding=0)
-        self.proj_k = nn.Conv2d(in_ch, in_ch, 1, stride=1, padding=0)
-        self.proj_v = nn.Conv2d(in_ch, in_ch, 1, stride=1, padding=0)
-        self.proj = nn.Conv2d(in_ch, in_ch, 1, stride=1, padding=0)
-        self.initialize()
-
-    def initialize(self):
-        for module in [self.proj_q, self.proj_k, self.proj_v, self.proj]:
-            init.xavier_uniform_(module.weight)
-            init.zeros_(module.bias)
-        init.xavier_uniform_(self.proj.weight, gain=1e-5)
-
-    def forward(self, x):
-        B, C, H, W = x.shape
-        h = self.group_norm(x)
-        q = self.proj_q(h)
-        k = self.proj_k(h)
-        v = self.proj_v(h)
-
-        q = q.permute(0, 2, 3, 1).view(B, H * W, C)
-        k = k.view(B, C, H * W)
-        w = torch.bmm(q, k) * (int(C) ** (-0.5))
-        assert list(w.shape) == [B, H * W, H * W]
-        w = F.softmax(w, dim=-1)
-
-        v = v.permute(0, 2, 3, 1).view(B, H * W, C)
-        h = torch.bmm(w, v)
-        assert list(h.shape) == [B, H * W, C]
-        h = h.view(B, H, W, C).permute(0, 3, 1, 2)
-        h = self.proj(h)
-
-        return x + h
-
-
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False):
+    def __init__(self, in_ch, out_ch, tdim, dropout):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(32, in_ch),
@@ -135,10 +97,6 @@ class ResBlock(nn.Module):
             self.shortcut = nn.Conv2d(in_ch, out_ch, 1, stride=1, padding=0)
         else:
             self.shortcut = nn.Identity()
-        if attn:
-            self.attn = AttnBlock(out_ch)
-        else:
-            self.attn = nn.Identity()
         self.initialize()
 
     def initialize(self):
@@ -154,14 +112,12 @@ class ResBlock(nn.Module):
         h = self.block2(h)
 
         h = h + self.shortcut(x)
-        h = self.attn(h)
         return h
 
 
 class UNet(nn.Module):
-    def __init__(self, T, img_ch, ch, ch_mult, attn, num_res_blocks, dropout):
+    def __init__(self, T, img_ch, ch, ch_mult, num_res_blocks, dropout):
         super().__init__()
-        assert all([i < len(ch_mult) for i in attn]), 'attn index out of bound'
         tdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
 
@@ -174,8 +130,11 @@ class UNet(nn.Module):
             out_ch = ch * mult
             for _ in range(num_res_blocks):
                 self.downblocks.append(ResBlock(
-                    in_ch=now_ch, out_ch=out_ch, tdim=tdim,
-                    dropout=dropout, attn=(i in attn)))
+                    in_ch=now_ch,
+                    out_ch=out_ch,
+                    tdim=tdim,
+                    dropout=dropout
+                ))
                 now_ch = out_ch
                 chs.append(now_ch)
             if i != len(ch_mult) - 1:
@@ -183,8 +142,8 @@ class UNet(nn.Module):
                 chs.append(now_ch)
 
         self.middleblocks = nn.ModuleList([
-            ResBlock(now_ch, now_ch, tdim, dropout, attn=True),
-            ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
+            ResBlock(now_ch, now_ch, tdim, dropout),
+            ResBlock(now_ch, now_ch, tdim, dropout),
         ])
 
         self.upblocks = nn.ModuleList()
@@ -192,8 +151,11 @@ class UNet(nn.Module):
             out_ch = ch * mult
             for _ in range(num_res_blocks + 1):
                 self.upblocks.append(ResBlock(
-                    in_ch=chs.pop() + now_ch, out_ch=out_ch, tdim=tdim,
-                    dropout=dropout, attn=(i in attn)))
+                    in_ch=chs.pop() + now_ch,
+                    out_ch=out_ch,
+                    tdim=tdim,
+                    dropout=dropout
+                ))
                 now_ch = out_ch
             if i != 0:
                 self.upblocks.append(UpSample(now_ch))
@@ -233,14 +195,3 @@ class UNet(nn.Module):
 
         assert len(hs) == 0
         return h
-
-
-if __name__ == '__main__':
-    batch_size = 8
-    model = UNet(
-        T=1000, ch=128, ch_mult=[1, 2, 2, 2], attn=[1],
-        num_res_blocks=2, dropout=0.1)
-    x = torch.randn(batch_size, 3, 32, 32)
-    t = torch.randint(1000, (batch_size,))
-    y = model(x, t)
-    print(y.shape)
