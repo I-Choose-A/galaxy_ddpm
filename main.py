@@ -125,13 +125,19 @@ def train(modelConfig: Dict):
     print("Training completed successfully")
 
 
-def inverse_astronomical_transform(tensor):
+def inverse_astronomical_transform(tensor, channels=None):
     """Inverse transformation: restoring the original astronomical data from the normalized tensor"""
+    original_channels = ["u", "g", "r", "i", "z"]
+    if channels:
+        channels = [original_channels.index(ch) for ch in channels]
+    else:
+        channels = [0, 1, 2, 3, 4]
+    sdss_mean = [0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357]
+    sdss_std = [0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607]
+
     # inverse normalization
-    mean = torch.tensor([0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
-                        device=tensor.device)
-    std = torch.tensor([0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607],
-                       device=tensor.device)
+    mean = torch.tensor([sdss_mean[i] for i in channels], device=tensor.device)
+    std = torch.tensor([sdss_std[i] for i in channels], device=tensor.device)
     denormalized = tensor * std.view(1, -1, 1, 1) + mean.view(1, -1, 1, 1)
 
     # inverse Log1p
@@ -172,7 +178,7 @@ def sampling(modelConfig: Dict):
         sampledImgs = sampler(noisyImage)
 
         # Inverse transform: restoring the original astronomical data dimensions
-        sampledImgs = inverse_astronomical_transform(sampledImgs)
+        sampledImgs = inverse_astronomical_transform(sampledImgs, channels=modelConfig["selected_channel"])
 
         # save to .npy
         output_dir = modelConfig["sampled_dir"]
@@ -206,7 +212,7 @@ if __name__ == '__main__':
         "device": "cuda:0",
         "training_load_weight": None,
         "save_weight_dir": "./Checkpoints/",
-        "test_load_weight": "ckpt_199_.pt",
+        "test_load_weight": "ckpt_99_.pt",
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",
