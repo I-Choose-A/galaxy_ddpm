@@ -193,9 +193,8 @@ def sampling(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or sampling
-        "epoch": 100,
-        # "batch_size": 1024,
-        "batch_size": 2,  # local use
+        "epoch": 2,
+        "batch_size": 1024,
         "T": 1000,
         "num_img_channel": 1,
         "selected_channel": ["z"],
@@ -218,11 +217,8 @@ if __name__ == '__main__':
         "sampledImgName": "SampledNoGuidenceImgs.png",
 
         # myriad use
-        # "images_path": r"/home/ucaphey/Scratch/sdss.npz",
-        # "conditions_path": r"/home/ucaphey/Scratch/sdss_selected_properties.csv",
-        # local use
-        "images_path": r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_slice.npz",
-        "conditions_path": r"C:\Users\asus\Desktop\Files\学\UCL\Research Project\Datasets\sdss_selected_properties.csv",
+        "images_path": r"/home/ucaphey/Scratch/sdss.npz",
+        "conditions_path": r"/home/ucaphey/Scratch/sdss_selected_properties.csv",
     }
 
     if modelConfig["state"] == "train":

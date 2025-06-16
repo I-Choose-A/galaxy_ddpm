@@ -21,13 +21,11 @@ class SDSS(Dataset):
         self.conditions_df = pd.read_csv(self.conditions_path)
 
     def __len__(self):
-        # return len(self.conditions_df)
-        return 10  # local use
+        return len(self.conditions_df)
 
     def __getitem__(self, item):
         imageID = self.conditions_df.iloc[item, 0]
-        # image = self.images[imageID]
-        image = self.images[item]  # local use
+        image = self.images[imageID]
         condition = self.conditions_df.iloc[item, 1:].to_numpy()
 
         # turn to tensor
