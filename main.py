@@ -18,7 +18,7 @@ def train(modelConfig: Dict):
     # Dataset setup
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
-        transforms.Lambda(lambda x: np.clip(x, -10, 1000)),
+        transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
         transforms.Lambda(lambda x: np.log1p(x)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or sampling
         "epoch": 2,
-        "batch_size": 1024,
+        "batch_size": 128,
         "T": 1000,
         "num_img_channel": 1,
         "selected_channel": ["z"],
