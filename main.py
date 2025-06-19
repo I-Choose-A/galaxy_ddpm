@@ -91,7 +91,7 @@ def train(modelConfig: Dict):
         for batch_idx, (images, _) in enumerate(dataloader):
             optimizer.zero_grad()
             x_0 = images.to(device)
-            loss = trainer(x_0).sum() / 1000.
+            loss = trainer(x_0).mean()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 net_model.parameters(), modelConfig["grad_clip"])
@@ -105,7 +105,7 @@ def train(modelConfig: Dict):
                 current_lr = optimizer.param_groups[0]['lr']
                 print(f"Epoch {epoch + 1}/{modelConfig['epoch']} | "
                       f"Batch {batch_idx}/{len(dataloader)} | "
-                      f"Batch Loss: {loss.item():.4f} | "
+                      f"Batch Loss (per sample): {loss.item():.4f} | "
                       f"LR: {current_lr:.2e}")
 
         warmUpScheduler.step()
@@ -113,7 +113,7 @@ def train(modelConfig: Dict):
         # Epoch summary
         avg_epoch_loss = epoch_loss / batch_count
         print(f"Epoch {epoch + 1} completed | "
-              f"Avg Loss: {avg_epoch_loss:.4f} | "
+              f"Avg Loss (per sample): {avg_epoch_loss:.4f} | "
               f"LR: {optimizer.param_groups[0]['lr']:.2e}")
 
         # Save checkpoint, only save last checkpoint
@@ -193,14 +193,14 @@ def sampling(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or sampling
-        "epoch": 2,
+        "epoch": 10,
         "batch_size": 128,
         "T": 1000,
         "num_img_channel": 1,
         "selected_channel": ["z"],
-        "channel": 128,
+        "channel": 8,
         "channel_mult": [1, 2, 3, 4],
-        "num_res_blocks": 2,
+        "num_res_blocks": 1,
         "dropout": 0.15,
         "lr": 1e-4,
         "multiplier": 2.,
