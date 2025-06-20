@@ -79,7 +79,7 @@ class ResBlock(nn.Module):
     def __init__(self, in_ch, out_ch, tdim, dropout):
         super().__init__()
         self.block1 = nn.Sequential(
-            nn.GroupNorm(32, in_ch),
+            nn.GroupNorm(8, in_ch),
             Swish(),
             nn.Conv2d(in_ch, out_ch, 3, stride=1, padding=1),
         )
@@ -88,7 +88,7 @@ class ResBlock(nn.Module):
             nn.Linear(tdim, out_ch),
         )
         self.block2 = nn.Sequential(
-            nn.GroupNorm(32, out_ch),
+            nn.GroupNorm(8, out_ch),
             Swish(),
             nn.Dropout(dropout),
             nn.Conv2d(out_ch, out_ch, 3, stride=1, padding=1),
@@ -162,7 +162,7 @@ class UNet(nn.Module):
         assert len(chs) == 0
 
         self.tail = nn.Sequential(
-            nn.GroupNorm(32, now_ch),
+            nn.GroupNorm(8, now_ch),
             Swish(),
             nn.Conv2d(now_ch, img_ch, 3, stride=1, padding=1)
         )
