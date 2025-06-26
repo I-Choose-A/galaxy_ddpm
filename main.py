@@ -193,7 +193,7 @@ def sampling(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or sampling
-        "epoch": 10,
+        "epoch": 30,
         "batch_size": 128,
         "T": 1000,
         "num_img_channel": 5,
