@@ -16,13 +16,18 @@ def train(modelConfig: Dict):
     device = torch.device(modelConfig["device"])
 
     # Dataset setup
+    alpha = 0.05
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
         transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
-        transforms.Lambda(lambda x: np.log1p(x)),
+        transforms.Lambda(lambda x: np.arcsinh(alpha * x)),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357],
-                             std=[0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607])
+        # arcsinh normalization
+        transforms.Normalize(
+            mean=[0.0003766524896491319, 0.0012405638117343187, 0.002521686488762498, 0.003659023903310299,
+                  0.004779669921845198],
+            std=[0.004004077520221472, 0.009601526893675327, 0.01590861566364765, 0.020500242710113525,
+                 0.026334315538406372])
     ])
 
     dataset = SDSS(
@@ -132,16 +137,20 @@ def inverse_astronomical_transform(tensor, channels=None):
         channels = [original_channels.index(ch) for ch in channels]
     else:
         channels = [0, 1, 2, 3, 4]
-    sdss_mean = [0.00615956, 0.02047303, 0.03759114, 0.05205064, 0.05791357]
-    sdss_std = [0.04185153, 0.07266889, 0.1180148, 0.15163979, 0.21814607]
+    # arcsinh normalization
+    sdss_mean = [0.0003766524896491319, 0.0012405638117343187, 0.002521686488762498, 0.003659023903310299,
+                 0.004779669921845198]
+    sdss_std = [0.004004077520221472, 0.009601526893675327, 0.01590861566364765, 0.020500242710113525,
+                0.026334315538406372]
 
     # inverse normalization
     mean = torch.tensor([sdss_mean[i] for i in channels], device=tensor.device)
     std = torch.tensor([sdss_std[i] for i in channels], device=tensor.device)
     denormalized = tensor * std.view(1, -1, 1, 1) + mean.view(1, -1, 1, 1)
 
-    # inverse Log1p
-    denormalized = torch.expm1(denormalized)  # exp(x) - 1
+    # inverse arcsinh
+    alpha = 0.05
+    denormalized = torch.sinh(denormalized) / alpha
 
     return denormalized
 
@@ -193,12 +202,12 @@ def sampling(modelConfig: Dict):
 if __name__ == '__main__':
     modelConfig = {
         "state": "train",  # or sampling
-        "epoch": 30,
+        "epoch": 100,
         "batch_size": 128,
         "T": 1000,
         "num_img_channel": 5,
         "selected_channel": ["u", "g", "r", "i", "z"],
-        "channel": 8,
+        "channel": 64,
         "channel_mult": [1, 2, 3, 4],
         "num_res_blocks": 1,
         "dropout": 0.15,
@@ -211,7 +220,7 @@ if __name__ == '__main__':
         "device": "cuda:0",
         "training_load_weight": None,
         "save_weight_dir": "./Checkpoints/",
-        "test_load_weight": "ckpt_99_.pt",
+        "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh.pt",
         "sampled_dir": "./SampledImgs/",
         "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
         "sampledImgName": "SampledNoGuidenceImgs.png",

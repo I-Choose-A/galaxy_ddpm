@@ -15,6 +15,32 @@ def extract(v, t, x_shape):
     return out.view([t.shape[0]] + [1] * (len(x_shape) - 1))
 
 
+def compute_weighted_ddpm_loss(epsilon_pred, epsilon_true, x_0, alpha=10.0, min_weight=1.0):
+    """
+    Computes a brightness-weighted MSE loss for DDPM.
+
+    Args:
+        epsilon_pred (Tensor): Predicted noise from the model, shape [B, C, H, W].
+        epsilon_true (Tensor): Ground-truth noise added during diffusion, shape [B, C, H, W].
+        x_0 (Tensor): Original clean image (before noise), shape [B, C, H, W].
+        alpha (float): Brightness scaling factor; larger values emphasize bright regions.
+        min_weight (float): Minimum weight to apply to background pixels (prevents zero weight).
+
+    Returns:
+        Tensor: Scalar loss value (brightness-weighted MSE).
+    """
+    # Compute brightness using arcsinh compression (scaled by alpha)
+    x_weight = torch.arcsinh(x_0 * alpha)
+
+    # Normalize per sample and channel; clamp to avoid division by zero
+    max_vals = x_weight.amax(dim=(2, 3), keepdim=True).clamp(min=1e-4)
+    weight = (x_weight / max_vals) + min_weight
+
+    # Apply brightness-based weighting to the MSE
+    loss = weight * (epsilon_pred - epsilon_true) ** 2
+    return loss.mean()
+
+
 class GaussianDiffusionTrainer(nn.Module):
     def __init__(self, model, beta_1, beta_T, T):
         super().__init__()
@@ -42,7 +68,16 @@ class GaussianDiffusionTrainer(nn.Module):
         x_t = (
                 extract(self.sqrt_alphas_bar, t, x_0.shape) * x_0 +
                 extract(self.sqrt_one_minus_alphas_bar, t, x_0.shape) * noise)
-        loss = F.mse_loss(self.model(x_t, t), noise, reduction='none')
+        # brightness-weighted MSE loss
+        eps_pred = self.model(x_t, t)
+        loss = compute_weighted_ddpm_loss(
+            epsilon_pred=eps_pred,
+            epsilon_true=noise,
+            x_0=x_0,
+            alpha=0.05,  # adjustable brightness compression parameters
+            min_weight=1.0  # adjustable background minimum weight
+        )
+
         return loss
 
 
