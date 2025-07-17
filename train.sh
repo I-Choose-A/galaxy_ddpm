@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #$ -N train_unconditional_ddpm
-#$ -l h_rt=12:0:0
+#$ -l h_rt=24:0:0
 #$ -cwd
 #$ -l mem=100G
 #$ -l gpu=1

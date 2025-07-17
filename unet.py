@@ -42,6 +42,27 @@ class TimeEmbedding(nn.Module):
         return emb
 
 
+class ConditionEmbedding(nn.Module):
+    def __init__(self, num_classes, dim):
+        super().__init__()
+        self.embedding = nn.Sequential(
+            nn.Embedding(num_classes, dim),
+            nn.Linear(dim, dim),
+            Swish(),
+            nn.Linear(dim, dim),
+        )
+        self.initialize()
+
+    def initialize(self):
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                init.xavier_uniform_(module.weight)
+                init.zeros_(module.bias)
+
+    def forward(self, c):
+        return self.embedding(c)
+
+
 class DownSample(nn.Module):
     def __init__(self, in_ch):
         super().__init__()
@@ -52,7 +73,7 @@ class DownSample(nn.Module):
         init.xavier_uniform_(self.main.weight)
         init.zeros_(self.main.bias)
 
-    def forward(self, x, temb):
+    def forward(self, x, temb, cemb):
         x = self.main(x)
         return x
 
@@ -67,7 +88,7 @@ class UpSample(nn.Module):
         init.xavier_uniform_(self.main.weight)
         init.zeros_(self.main.bias)
 
-    def forward(self, x, temb):
+    def forward(self, x, temb, cemb):
         _, _, H, W = x.shape
         x = F.interpolate(
             x, scale_factor=2, mode='nearest')
@@ -76,7 +97,7 @@ class UpSample(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout):
+    def __init__(self, in_ch, out_ch, tdim, cdim, dropout):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(8, in_ch),
@@ -86,6 +107,10 @@ class ResBlock(nn.Module):
         self.temb_proj = nn.Sequential(
             Swish(),
             nn.Linear(tdim, out_ch),
+        )
+        self.cemb_proj = nn.Sequential(
+            Swish(),
+            nn.Linear(cdim, out_ch),
         )
         self.block2 = nn.Sequential(
             nn.GroupNorm(8, out_ch),
@@ -106,9 +131,10 @@ class ResBlock(nn.Module):
                 init.zeros_(module.bias)
         init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
 
-    def forward(self, x, temb):
+    def forward(self, x, temb, cemb):
         h = self.block1(x)
         h += self.temb_proj(temb)[:, :, None, None]
+        h += self.cemb_proj(cemb)[:, :, None, None]
         h = self.block2(h)
 
         h = h + self.shortcut(x)
@@ -116,12 +142,13 @@ class ResBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, T, img_ch, ch, ch_mult, num_res_blocks, dropout):
+    def __init__(self, T, img_ch, ch, ch_mult, num_res_blocks, dropout, num_classes):
         super().__init__()
         tdim = ch * 4
+        cdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
+        self.condition_embedding = ConditionEmbedding(num_classes, cdim)  # condition embedding
 
-        # self.head = nn.Conv2d(3, ch, kernel_size=3, stride=1, padding=1)
         self.head = nn.Conv2d(img_ch, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()
         chs = [ch]  # record output channel when dowmsample for upsample
@@ -133,6 +160,7 @@ class UNet(nn.Module):
                     in_ch=now_ch,
                     out_ch=out_ch,
                     tdim=tdim,
+                    cdim=cdim,
                     dropout=dropout
                 ))
                 now_ch = out_ch
@@ -142,8 +170,8 @@ class UNet(nn.Module):
                 chs.append(now_ch)
 
         self.middleblocks = nn.ModuleList([
-            ResBlock(now_ch, now_ch, tdim, dropout),
-            ResBlock(now_ch, now_ch, tdim, dropout),
+            ResBlock(now_ch, now_ch, tdim, cdim, dropout),
+            ResBlock(now_ch, now_ch, tdim, cdim, dropout),
         ])
 
         self.upblocks = nn.ModuleList()
@@ -154,6 +182,7 @@ class UNet(nn.Module):
                     in_ch=chs.pop() + now_ch,
                     out_ch=out_ch,
                     tdim=tdim,
+                    cdim=cdim,
                     dropout=dropout
                 ))
                 now_ch = out_ch
@@ -174,23 +203,24 @@ class UNet(nn.Module):
         init.xavier_uniform_(self.tail[-1].weight, gain=1e-5)
         init.zeros_(self.tail[-1].bias)
 
-    def forward(self, x, t):
+    def forward(self, x, t, c):
         # Timestep embedding
         temb = self.time_embedding(t)
+        cemb = self.condition_embedding(c)
         # Downsampling
         h = self.head(x)
         hs = [h]
         for layer in self.downblocks:
-            h = layer(h, temb)
+            h = layer(h, temb, cemb)
             hs.append(h)
         # Middle
         for layer in self.middleblocks:
-            h = layer(h, temb)
+            h = layer(h, temb, cemb)
         # Upsampling
         for layer in self.upblocks:
             if isinstance(layer, ResBlock):
                 h = torch.cat([h, hs.pop()], dim=1)
-            h = layer(h, temb)
+            h = layer(h, temb, cemb)
         h = self.tail(h)
 
         assert len(hs) == 0

@@ -24,13 +24,12 @@ class SDSS(Dataset):
         return len(self.conditions_df)
 
     def __getitem__(self, item):
-        imageID = self.conditions_df.iloc[item, 0]
+        imageID = self.conditions_df.loc[item, "imageID"]
         image = self.images[imageID]
-        condition = self.conditions_df.iloc[item, 1:].to_numpy()
+        condition = self.conditions_df.loc[item, "mapped_gz2class"]
 
         # turn to tensor
         image = torch.from_numpy(image)
-        condition = torch.from_numpy(condition)
 
         # use transform
         if self.transform:

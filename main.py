@@ -1,5 +1,4 @@
 import os
-from typing import Dict
 
 import torch
 import torch.optim as optim
@@ -11,8 +10,39 @@ from unet import UNet
 from scheduler import GradualWarmupScheduler
 from dataset import SDSS
 
+modelConfig = {
+    "state": "sampling",  # or sampling
+    "epoch": 100,
+    "batch_size": 1024,
+    "T": 1000,
+    "num_img_channel": 5,
+    "selected_channel": ["u", "g", "r", "i", "z"],
+    "channel": 64,
+    "num_classes": 5,
+    "channel_mult": [1, 2, 3, 4],
+    "num_res_blocks": 1,
+    "dropout": 0.15,
+    "lr": 1e-4,
+    "multiplier": 2.,
+    "beta_1": 1e-4,
+    "beta_T": 0.02,
+    "img_size": 64,
+    "grad_clip": 1.,
+    "device": "cuda:0",
+    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh.pt",
+    "save_weight_dir": "./Checkpoints/",
+    "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh_conditional.pt",
+    "sampled_dir": "./SampledImgs/",
+    "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
+    "sampledImgName": "SampledNoGuidenceImgs.png",
 
-def train(modelConfig: Dict):
+    # myriad use
+    "images_path": r"/home/ucaphey/Scratch/sdss.npz",
+    "conditions_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
+}
+
+
+def train():
     device = torch.device(modelConfig["device"])
 
     # Dataset setup
@@ -52,13 +82,25 @@ def train(modelConfig: Dict):
         ch=modelConfig["channel"],
         ch_mult=modelConfig["channel_mult"],
         num_res_blocks=modelConfig["num_res_blocks"],
-        dropout=modelConfig["dropout"]
+        dropout=modelConfig["dropout"],
+        num_classes=modelConfig["num_classes"]
     ).to(device)
 
     if modelConfig["training_load_weight"] is not None:
-        net_model.load_state_dict(
-            torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]),
-                       map_location=device))
+        pretrained_dict = torch.load(
+            os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]),
+            map_location=device
+        )
+        model_dict = net_model.state_dict()
+
+        #  filter the layers according to condition embedding
+        pretrained_dict = {
+            k: v for k, v in pretrained_dict.items()
+            if k in model_dict and "condition_embedding" not in k
+        }
+        model_dict.update(pretrained_dict)
+        net_model.load_state_dict(model_dict, strict=False)
+        print(f"Loaded pretrained weights from {modelConfig['training_load_weight']}")
 
     # Optimizer setup
     optimizer = torch.optim.AdamW(
@@ -93,10 +135,11 @@ def train(modelConfig: Dict):
         epoch_loss = 0.0
         batch_count = 0
 
-        for batch_idx, (images, _) in enumerate(dataloader):
+        for batch_idx, (images, conditions) in enumerate(dataloader):
             optimizer.zero_grad()
             x_0 = images.to(device)
-            loss = trainer(x_0).mean()
+            c = conditions.to(device)
+            loss = trainer(x_0, c).mean()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(
                 net_model.parameters(), modelConfig["grad_clip"])
@@ -155,7 +198,7 @@ def inverse_astronomical_transform(tensor, channels=None):
     return denormalized
 
 
-def sampling(modelConfig: Dict):
+def sampling():
     # load model and sampling
     with torch.no_grad():
         device = torch.device(modelConfig["device"])
@@ -165,7 +208,8 @@ def sampling(modelConfig: Dict):
             ch=modelConfig["channel"],
             ch_mult=modelConfig["channel_mult"],
             num_res_blocks=modelConfig["num_res_blocks"],
-            dropout=0.
+            dropout=0.,
+            num_classes=modelConfig["num_classes"]
         )
         ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]),
                           map_location=device)
@@ -178,59 +222,74 @@ def sampling(modelConfig: Dict):
             modelConfig["beta_T"],
             modelConfig["T"]
         ).to(device)
-        # Sampled from standard normal distribution
-        noisyImage = torch.randn(
-            size=[modelConfig["batch_size"], modelConfig["num_img_channel"], 64, 64],
-            device=device
-        )
 
-        sampledImgs = sampler(noisyImage)
-
-        # Inverse transform: restoring the original astronomical data dimensions
-        sampledImgs = inverse_astronomical_transform(sampledImgs, channels=modelConfig["selected_channel"])
-
-        # save to .npy
-        output_dir = modelConfig["sampled_dir"]
+        real_images_per_class = [36478, 37912, 4005, 15480, 82730]
+        batch_size = modelConfig["batch_size"]
+        output_dir = os.path.join(modelConfig["sampled_dir"], "fid_batches")
         os.makedirs(output_dir, exist_ok=True)
-        np.save(
-            os.path.join(output_dir, "sampled_imgs.npy"),
-            sampledImgs.cpu().numpy()
-        )
-        print(f"Saved raw astronomical data to {output_dir}")
+
+        for class_id, num_real_images in enumerate(real_images_per_class):
+            print(f"\nGenerating {num_real_images} images for class {class_id}...")
+            num_batches = (num_real_images + batch_size - 1) // batch_size
+
+            for batch_idx in range(num_batches):
+                # adjust for final batch
+                current_batch_size = min(
+                    batch_size,
+                    num_real_images - batch_idx * batch_size
+                )
+
+                # generate noise and conditions
+                noise = torch.randn(
+                    [current_batch_size, modelConfig["num_img_channel"], 64, 64],
+                    device=device
+                )
+                c = torch.tensor([class_id] * current_batch_size, device=device)
+
+                # sampling
+                sampled = sampler(noise, c)
+                sampled = inverse_astronomical_transform(
+                    sampled,
+                    modelConfig["selected_channel"]
+                )
+
+                # save batch to temp file
+                batch_path = os.path.join(
+                    output_dir,
+                    f"class_{class_id}_batch_{batch_idx:04d}.npy"  # Zero-padded naming
+                )
+                np.save(batch_path, sampled.cpu().numpy())
+
+                # clear cache every 5 batches
+                if batch_idx % 5 == 0 and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+        print("\nOrganizing files for cFID evaluation...")
+        final_output_dir = os.path.join(modelConfig["sampled_dir"], "cFID_results")
+        os.makedirs(final_output_dir, exist_ok=True)
+
+        for class_id in range(modelConfig["num_classes"]):
+            # load all batches for current class
+            class_files = sorted([
+                os.path.join(output_dir, f)
+                for f in os.listdir(output_dir)
+                if f.startswith(f"class_{class_id}_") and f.endswith(".npy")
+            ])
+
+            # concatenate and save as single .npy file
+            class_images = np.concatenate(
+                [np.load(f) for f in class_files],
+                axis=0
+            )
+            np.save(
+                os.path.join(final_output_dir, f"generated_class_{class_id}.npy"),
+                class_images
+            )
+            print(f"Class {class_id}: Save {len(class_images)} images")
 
 
 if __name__ == '__main__':
-    modelConfig = {
-        "state": "train",  # or sampling
-        "epoch": 100,
-        "batch_size": 128,
-        "T": 1000,
-        "num_img_channel": 5,
-        "selected_channel": ["u", "g", "r", "i", "z"],
-        "channel": 64,
-        "channel_mult": [1, 2, 3, 4],
-        "num_res_blocks": 1,
-        "dropout": 0.15,
-        "lr": 1e-4,
-        "multiplier": 2.,
-        "beta_1": 1e-4,
-        "beta_T": 0.02,
-        "img_size": 64,
-        "grad_clip": 1.,
-        "device": "cuda:0",
-        "training_load_weight": None,
-        "save_weight_dir": "./Checkpoints/",
-        "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh.pt",
-        "sampled_dir": "./SampledImgs/",
-        "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
-        "sampledImgName": "SampledNoGuidenceImgs.png",
-
-        # myriad use
-        "images_path": r"/home/ucaphey/Scratch/sdss.npz",
-        "conditions_path": r"/home/ucaphey/Scratch/sdss_selected_properties.csv",
-    }
-
     if modelConfig["state"] == "train":
-        train(modelConfig)
+        train()
     else:
-        sampling(modelConfig)
+        sampling()
