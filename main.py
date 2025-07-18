@@ -11,7 +11,7 @@ from scheduler import GradualWarmupScheduler
 from dataset import SDSS
 
 modelConfig = {
-    "state": "sampling",  # or sampling
+    "state": "train",  # or sampling
     "epoch": 100,
     "batch_size": 1024,
     "T": 1000,
@@ -173,31 +173,6 @@ def train():
     print("Training completed successfully")
 
 
-def inverse_astronomical_transform(tensor, channels=None):
-    """Inverse transformation: restoring the original astronomical data from the normalized tensor"""
-    original_channels = ["u", "g", "r", "i", "z"]
-    if channels:
-        channels = [original_channels.index(ch) for ch in channels]
-    else:
-        channels = [0, 1, 2, 3, 4]
-    # arcsinh normalization
-    sdss_mean = [0.0003766524896491319, 0.0012405638117343187, 0.002521686488762498, 0.003659023903310299,
-                 0.004779669921845198]
-    sdss_std = [0.004004077520221472, 0.009601526893675327, 0.01590861566364765, 0.020500242710113525,
-                0.026334315538406372]
-
-    # inverse normalization
-    mean = torch.tensor([sdss_mean[i] for i in channels], device=tensor.device)
-    std = torch.tensor([sdss_std[i] for i in channels], device=tensor.device)
-    denormalized = tensor * std.view(1, -1, 1, 1) + mean.view(1, -1, 1, 1)
-
-    # inverse arcsinh
-    alpha = 0.05
-    denormalized = torch.sinh(denormalized) / alpha
-
-    return denormalized
-
-
 def sampling():
     # load model and sampling
     with torch.no_grad():
@@ -223,7 +198,9 @@ def sampling():
             modelConfig["T"]
         ).to(device)
 
-        real_images_per_class = [36478, 37912, 4005, 15480, 82730]
+        # real_images_per_class = [36478, 37912, 4005, 15480, 82730]
+        real_images_per_class = [10, 10, 10, 10, 10]
+
         batch_size = modelConfig["batch_size"]
         output_dir = os.path.join(modelConfig["sampled_dir"], "fid_batches")
         os.makedirs(output_dir, exist_ok=True)
@@ -248,15 +225,15 @@ def sampling():
 
                 # sampling
                 sampled = sampler(noise, c)
-                sampled = inverse_astronomical_transform(
-                    sampled,
-                    modelConfig["selected_channel"]
-                )
+                # sampled = inverse_astronomical_transform(
+                #     sampled,
+                #     modelConfig["selected_channel"]
+                # )
 
                 # save batch to temp file
                 batch_path = os.path.join(
                     output_dir,
-                    f"class_{class_id}_batch_{batch_idx:04d}.npy"  # Zero-padded naming
+                    f"class_{class_id}_batch_{batch_idx:04d}_10samples.npy"  # Zero-padded naming
                 )
                 np.save(batch_path, sampled.cpu().numpy())
 
@@ -264,28 +241,28 @@ def sampling():
                 if batch_idx % 5 == 0 and torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-        print("\nOrganizing files for cFID evaluation...")
-        final_output_dir = os.path.join(modelConfig["sampled_dir"], "cFID_results")
-        os.makedirs(final_output_dir, exist_ok=True)
-
-        for class_id in range(modelConfig["num_classes"]):
-            # load all batches for current class
-            class_files = sorted([
-                os.path.join(output_dir, f)
-                for f in os.listdir(output_dir)
-                if f.startswith(f"class_{class_id}_") and f.endswith(".npy")
-            ])
-
-            # concatenate and save as single .npy file
-            class_images = np.concatenate(
-                [np.load(f) for f in class_files],
-                axis=0
-            )
-            np.save(
-                os.path.join(final_output_dir, f"generated_class_{class_id}.npy"),
-                class_images
-            )
-            print(f"Class {class_id}: Save {len(class_images)} images")
+        # print("\nOrganizing files for cFID evaluation...")
+        # final_output_dir = os.path.join(modelConfig["sampled_dir"], "cFID_results")
+        # os.makedirs(final_output_dir, exist_ok=True)
+        # 
+        # for class_id in range(modelConfig["num_classes"]):
+        #     # load all batches for current class
+        #     class_files = sorted([
+        #         os.path.join(output_dir, f)
+        #         for f in os.listdir(output_dir)
+        #         if f.startswith(f"class_{class_id}_") and f.endswith(".npy")
+        #     ])
+        # 
+        #     # concatenate and save as single .npy file
+        #     class_images = np.concatenate(
+        #         [np.load(f) for f in class_files],
+        #         axis=0
+        #     )
+        #     np.save(
+        #         os.path.join(final_output_dir, f"generated_class_{class_id}.npy"),
+        #         class_images
+        #     )
+        #     print(f"Class {class_id}: Save {len(class_images)} images")
 
 
 if __name__ == '__main__':
