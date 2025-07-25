@@ -22,14 +22,14 @@ modelConfig = {
     "channel_mult": [1, 2, 3, 4],
     "num_res_blocks": 1,
     "dropout": 0.15,
-    "lr": 1e-4,
+    "lr": 1e-5,
     "multiplier": 2.,
     "beta_1": 1e-4,
     "beta_T": 0.02,
     "img_size": 64,
     "grad_clip": 1.,
     "device": "cuda:0",
-    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh.pt",
+    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_norm_arcsinh_scaling.pt",
     "save_weight_dir": "./Checkpoints/",
     "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh_conditional.pt",
     "sampled_dir": "./SampledImgs/",
@@ -46,18 +46,11 @@ def train():
     device = torch.device(modelConfig["device"])
 
     # Dataset setup
-    alpha = 0.05
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
         transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
-        transforms.Lambda(lambda x: np.arcsinh(alpha * x)),
+        transforms.Lambda(lambda x: np.tanh(x)),
         transforms.ToTensor(),
-        # arcsinh normalization
-        transforms.Normalize(
-            mean=[0.0003766524896491319, 0.0012405638117343187, 0.002521686488762498, 0.003659023903310299,
-                  0.004779669921845198],
-            std=[0.004004077520221472, 0.009601526893675327, 0.01590861566364765, 0.020500242710113525,
-                 0.026334315538406372])
     ])
 
     dataset = SDSS(
