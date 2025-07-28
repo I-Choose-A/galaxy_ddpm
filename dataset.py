@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-import torch
 from torch.utils.data import Dataset
+import sep
 
 
 class SDSS(Dataset):
@@ -28,8 +28,15 @@ class SDSS(Dataset):
         image = self.images[imageID]
         condition = self.conditions_df.loc[item, "mapped_gz2class"]
 
-        # turn to tensor
-        image = torch.from_numpy(image)
+        for i in range(len(self.channels)):
+            channel = np.ascontiguousarray(image[:, :, i])
+            bkg = sep.Background(channel, bw=64, bh=64)
+            bkg_mean = bkg.back()
+            clean_channel = channel - bkg_mean
+
+            mean = np.mean(clean_channel)
+            std = np.std(clean_channel)
+            image[..., i] = (clean_channel - mean) / std
 
         # use transform
         if self.transform:

@@ -48,7 +48,7 @@ def train():
     # Dataset setup
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
-        transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
+        # transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
         transforms.Lambda(lambda x: np.tanh(x)),
         transforms.ToTensor(),
     ])
