@@ -13,7 +13,7 @@ from dataset import SDSS
 modelConfig = {
     "state": "train",  # or sampling
     "epoch": 100,
-    "batch_size": 1024,
+    "batch_size": 128,
     "T": 1000,
     "num_img_channel": 5,
     "selected_channel": ["u", "g", "r", "i", "z"],
@@ -29,7 +29,7 @@ modelConfig = {
     "img_size": 64,
     "grad_clip": 1.,
     "device": "cuda:0",
-    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_norm_arcsinh_scaling.pt",
+    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_sep_mean-std_tanh.pt",
     "save_weight_dir": "./Checkpoints/",
     "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh_conditional.pt",
     "sampled_dir": "./SampledImgs/",
