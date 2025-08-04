@@ -26,17 +26,13 @@ class SDSS(Dataset):
     def __getitem__(self, item):
         imageID = self.conditions_df.loc[item, "imageID"]
         image = self.images[imageID]
-        condition = self.conditions_df.loc[item, "mapped_gz2class"]
+        condition = np.array(self.conditions_df.iloc[item, 3:], dtype=np.float32)
 
         for i in range(len(self.channels)):
             channel = np.ascontiguousarray(image[:, :, i])
             bkg = sep.Background(channel, bw=64, bh=64)
             bkg_mean = bkg.back()
-            clean_channel = channel - bkg_mean
-
-            mean = np.mean(clean_channel)
-            std = np.std(clean_channel)
-            image[..., i] = (clean_channel - mean) / std
+            image[..., i] = channel - bkg_mean
 
         # use transform
         if self.transform:

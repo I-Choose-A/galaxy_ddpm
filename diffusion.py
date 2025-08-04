@@ -70,13 +70,14 @@ class GaussianDiffusionTrainer(nn.Module):
                 extract(self.sqrt_one_minus_alphas_bar, t, x_0.shape) * noise)
         # brightness-weighted MSE loss
         eps_pred = self.model(x_t, t, c)
-        loss = compute_weighted_ddpm_loss(
-            epsilon_pred=eps_pred,
-            epsilon_true=noise,
-            x_0=x_0,
-            alpha=0.05,  # adjustable brightness compression parameters
-            min_weight=1.0  # adjustable background minimum weight
-        )
+        # loss = compute_weighted_ddpm_loss(
+        #     epsilon_pred=eps_pred,
+        #     epsilon_true=noise,
+        #     x_0=x_0,
+        #     alpha=0.05,  # adjustable brightness compression parameters
+        #     min_weight=1.0  # adjustable background minimum weight
+        # )
+        loss = F.mse_loss(eps_pred, noise, reduction='none')
 
         return loss
 

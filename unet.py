@@ -43,24 +43,55 @@ class TimeEmbedding(nn.Module):
 
 
 class ConditionEmbedding(nn.Module):
-    def __init__(self, num_classes, dim):
+    def __init__(self, num_classes, num_continuous_features, dim):
         super().__init__()
-        self.embedding = nn.Sequential(
-            nn.Embedding(num_classes, dim),
-            nn.Linear(dim, dim),
-            Swish(),
+        self.num_continuous_features = num_continuous_features
+
+        # class emb
+        self.class_embed = nn.Sequential(
+            nn.Embedding(num_classes, dim * 2),
+            nn.GELU(),
+            nn.Linear(dim * 2, dim),
+        )
+
+        # continuous feature processing
+        self.continuous_net = nn.Sequential(
+            nn.BatchNorm1d(num_continuous_features),  # 自动归一化连续特征
+            nn.Linear(num_continuous_features, dim * 2),
+            nn.GELU(),
+            nn.Linear(dim * 2, dim),
+        )
+
+        # feature fusion (attention mechanism)
+        self.fusion = nn.Sequential(
+            nn.Linear(dim * 2, dim),
+            nn.GELU(),
             nn.Linear(dim, dim),
         )
+
         self.initialize()
 
     def initialize(self):
         for module in self.modules():
             if isinstance(module, nn.Linear):
-                init.xavier_uniform_(module.weight)
-                init.zeros_(module.bias)
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
 
-    def forward(self, c):
-        return self.embedding(c)
+    def forward(self, conditions):
+        class_idx = conditions[:, -1].long()
+        continuous_feats = conditions[:, : self.num_continuous_features]
+
+        # processing class and continuous features
+        class_emb = self.class_embed(class_idx)
+        continuous_emb = self.continuous_net(continuous_feats)
+
+        # concat and attentional weighted fusion
+        combined = torch.cat([class_emb, continuous_emb], dim=-1)
+        weights = torch.sigmoid(self.fusion(combined))
+        output = weights * class_emb + (1 - weights) * continuous_emb
+
+        return output
 
 
 class DownSample(nn.Module):
@@ -142,12 +173,12 @@ class ResBlock(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, T, img_ch, ch, ch_mult, num_res_blocks, dropout, num_classes):
+    def __init__(self, T, img_ch, ch, ch_mult, num_res_blocks, dropout, num_classes, num_features):
         super().__init__()
         tdim = ch * 4
         cdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
-        self.condition_embedding = ConditionEmbedding(num_classes, cdim)  # condition embedding
+        self.condition_embedding = ConditionEmbedding(num_classes, num_features, cdim)  # condition embedding
 
         self.head = nn.Conv2d(img_ch, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()

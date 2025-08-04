@@ -12,26 +12,27 @@ from dataset import SDSS
 
 modelConfig = {
     "state": "train",  # or sampling
-    "epoch": 100,
-    "batch_size": 128,
+    "epoch": 10,
+    "batch_size": 64,
     "T": 1000,
     "num_img_channel": 5,
     "selected_channel": ["u", "g", "r", "i", "z"],
-    "channel": 64,
+    "channel": 256,
     "num_classes": 5,
+    "num_features": 5,
     "channel_mult": [1, 2, 3, 4],
     "num_res_blocks": 1,
-    "dropout": 0.15,
-    "lr": 1e-5,
+    "dropout": 0.1,
+    "lr": 5e-5,
     "multiplier": 2.,
     "beta_1": 1e-4,
     "beta_T": 0.02,
     "img_size": 64,
     "grad_clip": 1.,
-    "device": "cuda:0",
-    "training_load_weight": "ckpt_29_5ch_directly_64baseCh_sep_mean-std_tanh.pt",
+    "device": "cuda",
+    "training_load_weight": "ckpt_29_no-transfer_5ch_lr5e-5_conditional.pt",
     "save_weight_dir": "./Checkpoints/",
-    "test_load_weight": "ckpt_29_5ch_directly_64baseCh_arcsinh_conditional.pt",
+    "test_load_weight": "ckpt_29_.pt",
     "sampled_dir": "./SampledImgs/",
     "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
     "sampledImgName": "SampledNoGuidenceImgs.png",
@@ -46,11 +47,16 @@ def train():
     device = torch.device(modelConfig["device"])
 
     # Dataset setup
+    alpha = 0.05
+    sep_mean = [0.006874967832118273, 0.03785848245024681, 0.07799547165632248, 0.1106007769703865, 0.13126179575920105]
+    sep_std = [0.08303029835224152, 0.255173921585083, 0.46921947598457336, 0.6261722445487976, 0.8178646564483643]
+
     astronomical_transform = transforms.Compose([
         transforms.Lambda(lambda x: np.nan_to_num(x, nan=0.0)),
-        # transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
-        transforms.Lambda(lambda x: np.tanh(x)),
+        transforms.Lambda(lambda x: np.clip(x, -0.999, 1000)),
         transforms.ToTensor(),
+        transforms.Normalize(mean=sep_mean, std=sep_std),
+        transforms.Lambda(lambda x: torch.tanh(alpha * x)),
     ])
 
     dataset = SDSS(
@@ -76,7 +82,8 @@ def train():
         ch_mult=modelConfig["channel_mult"],
         num_res_blocks=modelConfig["num_res_blocks"],
         dropout=modelConfig["dropout"],
-        num_classes=modelConfig["num_classes"]
+        num_classes=modelConfig["num_classes"],
+        num_features=modelConfig["num_features"]
     ).to(device)
 
     if modelConfig["training_load_weight"] is not None:
@@ -84,16 +91,17 @@ def train():
             os.path.join(modelConfig["save_weight_dir"], modelConfig["training_load_weight"]),
             map_location=device
         )
-        model_dict = net_model.state_dict()
+        net_model.load_state_dict(pretrained_dict)
+        # model_dict = net_model.state_dict()
 
-        #  filter the layers according to condition embedding
-        pretrained_dict = {
-            k: v for k, v in pretrained_dict.items()
-            if k in model_dict and "condition_embedding" not in k
-        }
-        model_dict.update(pretrained_dict)
-        net_model.load_state_dict(model_dict, strict=False)
-        print(f"Loaded pretrained weights from {modelConfig['training_load_weight']}")
+        # #  filter the layers according to condition embedding
+        # pretrained_dict = {
+        #     k: v for k, v in pretrained_dict.items()
+        #     if k in model_dict and "condition_embedding" not in k
+        # }
+        # model_dict.update(pretrained_dict)
+        # net_model.load_state_dict(model_dict, strict=False)
+        # print(f"Loaded pretrained weights from {modelConfig['training_load_weight']}")
 
     # Optimizer setup
     optimizer = torch.optim.AdamW(
@@ -102,18 +110,19 @@ def train():
         weight_decay=1e-4
     )
 
-    cosineScheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer=optimizer,
-        T_max=modelConfig["epoch"],
-        eta_min=0,
-        last_epoch=-1
-    )
-    warmUpScheduler = GradualWarmupScheduler(
-        optimizer=optimizer,
-        multiplier=modelConfig["multiplier"],
-        warm_epoch=modelConfig["epoch"] // 10,
-        after_scheduler=cosineScheduler
-    )
+    # cosineScheduler = optim.lr_scheduler.CosineAnnealingLR(
+    #     optimizer=optimizer,
+    #     T_max=modelConfig["epoch"],
+    #     eta_min=0,
+    #     last_epoch=-1
+    # )
+    # warmUpScheduler = GradualWarmupScheduler(
+    #     optimizer=optimizer,
+    #     multiplier=modelConfig["multiplier"],
+    #     # multiplier=1,
+    #     warm_epoch=modelConfig["epoch"] // 10,
+    #     after_scheduler=cosineScheduler
+    # )
 
     trainer = GaussianDiffusionTrainer(
         net_model,
@@ -149,7 +158,7 @@ def train():
                       f"Batch Loss (per sample): {loss.item():.4f} | "
                       f"LR: {current_lr:.2e}")
 
-        warmUpScheduler.step()
+        # warmUpScheduler.step()
 
         # Epoch summary
         avg_epoch_loss = epoch_loss / batch_count
@@ -177,7 +186,8 @@ def sampling():
             ch_mult=modelConfig["channel_mult"],
             num_res_blocks=modelConfig["num_res_blocks"],
             dropout=0.,
-            num_classes=modelConfig["num_classes"]
+            num_classes=modelConfig["num_classes"],
+            num_features=modelConfig["num_features"]
         )
         ckpt = torch.load(os.path.join(modelConfig["save_weight_dir"], modelConfig["test_load_weight"]),
                           map_location=device)
@@ -195,7 +205,7 @@ def sampling():
         real_images_per_class = [10, 10, 10, 10, 10]
 
         batch_size = modelConfig["batch_size"]
-        output_dir = os.path.join(modelConfig["sampled_dir"], "fid_batches")
+        output_dir = os.path.join(modelConfig["sampled_dir"], "fid_batches/using_feature_median")
         os.makedirs(output_dir, exist_ok=True)
 
         for class_id, num_real_images in enumerate(real_images_per_class):
@@ -214,14 +224,20 @@ def sampling():
                     [current_batch_size, modelConfig["num_img_channel"], 64, 64],
                     device=device
                 )
-                c = torch.tensor([class_id] * current_batch_size, device=device)
+                # use mean of each physical feature
+                # c = torch.tensor([4.43992601133607, 0.011444474540351243, -6.1040309726109205, 0.0803721621632576,
+                #                   10.753847908103175, class_id] * current_batch_size, device=device)
+                # use median of each physical feature
+                c = torch.tensor([3.8961502088838444, 0.008839854973913385, -2.7289007776677927, 0.07603080570697784,
+                                  10.844648974261666, class_id] * current_batch_size, device=device)
+                # custom
+                # c = torch.tensor(
+                #     [13.061960593453904, 0.030131004366812226, -32.729402869739836, 0.3845420479774475, 12.479516789074125,
+                #      class_id] * current_batch_size, device=device)
 
+                c = c.view(current_batch_size, -1)
                 # sampling
                 sampled = sampler(noise, c)
-                # sampled = inverse_astronomical_transform(
-                #     sampled,
-                #     modelConfig["selected_channel"]
-                # )
 
                 # save batch to temp file
                 batch_path = os.path.join(
