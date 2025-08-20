@@ -2,43 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import numpy as np
 
-
+# extract some coefficients at specified timesteps
 def extract(v, t, x_shape):
-    """
-    Extract some coefficients at specified timesteps, then reshape to
-    [batch_size, 1, 1, 1, 1, ...] for broadcasting purposes.
-    """
     device = t.device
     out = torch.gather(v, index=t, dim=0).float().to(device)
     return out.view([t.shape[0]] + [1] * (len(x_shape) - 1))
-
-
-def compute_weighted_ddpm_loss(epsilon_pred, epsilon_true, x_0, alpha=10.0, min_weight=1.0):
-    """
-    Computes a brightness-weighted MSE loss for DDPM.
-
-    Args:
-        epsilon_pred (Tensor): Predicted noise from the model, shape [B, C, H, W].
-        epsilon_true (Tensor): Ground-truth noise added during diffusion, shape [B, C, H, W].
-        x_0 (Tensor): Original clean image (before noise), shape [B, C, H, W].
-        alpha (float): Brightness scaling factor; larger values emphasize bright regions.
-        min_weight (float): Minimum weight to apply to background pixels (prevents zero weight).
-
-    Returns:
-        Tensor: Scalar loss value (brightness-weighted MSE).
-    """
-    # Compute brightness using arcsinh compression (scaled by alpha)
-    x_weight = torch.arcsinh(x_0 * alpha)
-
-    # Normalize per sample and channel; clamp to avoid division by zero
-    max_vals = x_weight.amax(dim=(2, 3), keepdim=True).clamp(min=1e-4)
-    weight = (x_weight / max_vals) + min_weight
-
-    # Apply brightness-based weighting to the MSE
-    loss = weight * (epsilon_pred - epsilon_true) ** 2
-    return loss.mean()
 
 
 class GaussianDiffusionTrainer(nn.Module):
@@ -59,10 +28,8 @@ class GaussianDiffusionTrainer(nn.Module):
         self.register_buffer(
             'sqrt_one_minus_alphas_bar', torch.sqrt(1. - alphas_bar))
 
+    # Algorithm 1 of DDPM paper
     def forward(self, x_0, c):
-        """
-        Algorithm 1.
-        """
         t = torch.randint(self.T, size=(x_0.shape[0],), device=x_0.device)
         noise = torch.randn_like(x_0)
         x_t = (
@@ -70,13 +37,6 @@ class GaussianDiffusionTrainer(nn.Module):
                 extract(self.sqrt_one_minus_alphas_bar, t, x_0.shape) * noise)
         # brightness-weighted MSE loss
         eps_pred = self.model(x_t, t, c)
-        # loss = compute_weighted_ddpm_loss(
-        #     epsilon_pred=eps_pred,
-        #     epsilon_true=noise,
-        #     x_0=x_0,
-        #     alpha=0.05,  # adjustable brightness compression parameters
-        #     min_weight=1.0  # adjustable background minimum weight
-        # )
         loss = F.mse_loss(eps_pred, noise, reduction='none')
 
         return loss
@@ -88,7 +48,7 @@ class GaussianDiffusionSampler(nn.Module):
 
         self.model = model
         self.T = T
-
+        # pre-computing coefficient
         self.register_buffer('betas', torch.linspace(beta_1, beta_T, T).double())
         alphas = 1. - self.betas
         alphas_bar = torch.cumprod(alphas, dim=0)
@@ -107,7 +67,7 @@ class GaussianDiffusionSampler(nn.Module):
         )
 
     def p_mean_variance(self, x_t, t, c):
-        # below: only log_variance is used in the KL computations
+        # only log_variance is used in the KL computations
         var = torch.cat([self.posterior_var[1:2], self.betas[1:]])
         var = extract(var, t, x_t.shape)
 
@@ -116,10 +76,8 @@ class GaussianDiffusionSampler(nn.Module):
 
         return xt_prev_mean, var
 
+    # Algorithm 2 of DDPM paper
     def forward(self, x_T, c):
-        """
-        Algorithm 2.
-        """
         x_t = x_T
         for time_step in reversed(range(self.T)):
             print(time_step)

@@ -1,19 +1,21 @@
 import math
+
 import torch
 from torch import nn
-from torch.nn import init
 from torch.nn import functional as F
+from torch.nn import init
 
 
 class Swish(nn.Module):
     def forward(self, x):
         return x * torch.sigmoid(x)
 
-
+# time embedding module
 class TimeEmbedding(nn.Module):
     def __init__(self, T, d_model, dim):
         assert d_model % 2 == 0
         super().__init__()
+        # sin and cos position encoding
         emb = torch.arange(0, d_model, step=2) / d_model * math.log(10000)
         emb = torch.exp(-emb)
         pos = torch.arange(T).float()
@@ -23,6 +25,7 @@ class TimeEmbedding(nn.Module):
         assert list(emb.shape) == [T, d_model // 2, 2]
         emb = emb.view(T, d_model)
 
+        # embedding layer
         self.timembedding = nn.Sequential(
             nn.Embedding.from_pretrained(emb),
             nn.Linear(d_model, dim),
@@ -41,13 +44,13 @@ class TimeEmbedding(nn.Module):
         emb = self.timembedding(t)
         return emb
 
-
+# physical feature embedding module
 class ConditionEmbedding(nn.Module):
     def __init__(self, num_classes, num_continuous_features, dim):
         super().__init__()
         self.num_continuous_features = num_continuous_features
 
-        # class emb
+        # category emb
         self.class_embed = nn.Sequential(
             nn.Embedding(num_classes, dim * 2),
             nn.GELU(),
@@ -93,7 +96,7 @@ class ConditionEmbedding(nn.Module):
 
         return output
 
-
+# downsampling module
 class DownSample(nn.Module):
     def __init__(self, in_ch):
         super().__init__()
@@ -104,11 +107,12 @@ class DownSample(nn.Module):
         init.xavier_uniform_(self.main.weight)
         init.zeros_(self.main.bias)
 
+    # temb and cemb are placeholder for coding convenient
     def forward(self, x, temb, cemb):
         x = self.main(x)
         return x
 
-
+# upsampling module
 class UpSample(nn.Module):
     def __init__(self, in_ch):
         super().__init__()
@@ -119,6 +123,7 @@ class UpSample(nn.Module):
         init.xavier_uniform_(self.main.weight)
         init.zeros_(self.main.bias)
 
+    # temb and cemb are placeholder for coding convenient
     def forward(self, x, temb, cemb):
         _, _, H, W = x.shape
         x = F.interpolate(
@@ -135,10 +140,12 @@ class ResBlock(nn.Module):
             Swish(),
             nn.Conv2d(in_ch, out_ch, 3, stride=1, padding=1),
         )
+        # fc that takes in time emb
         self.temb_proj = nn.Sequential(
             Swish(),
             nn.Linear(tdim, out_ch),
         )
+        # fc that takes in condition emb
         self.cemb_proj = nn.Sequential(
             Swish(),
             nn.Linear(cdim, out_ch),
@@ -179,10 +186,11 @@ class UNet(nn.Module):
         cdim = ch * 4
         self.time_embedding = TimeEmbedding(T, ch, tdim)
         self.condition_embedding = ConditionEmbedding(num_classes, num_features, cdim)  # condition embedding
-
+        # head layer controls output to be 5 channel
         self.head = nn.Conv2d(img_ch, ch, kernel_size=3, stride=1, padding=1)
+        # create encoder sequential of resnet blocks and downsampling blocks
         self.downblocks = nn.ModuleList()
-        chs = [ch]  # record output channel when dowmsample for upsample
+        chs = [ch]  # record output channel when downsample for upsample
         now_ch = ch
         for i, mult in enumerate(ch_mult):
             out_ch = ch * mult
@@ -200,11 +208,13 @@ class UNet(nn.Module):
                 self.downblocks.append(DownSample(now_ch))
                 chs.append(now_ch)
 
+        # bottleneck layer
         self.middleblocks = nn.ModuleList([
             ResBlock(now_ch, now_ch, tdim, cdim, dropout),
             ResBlock(now_ch, now_ch, tdim, cdim, dropout),
         ])
 
+        # create decoder sequential of resnet blocks and upsampling blocks
         self.upblocks = nn.ModuleList()
         for i, mult in reversed(list(enumerate(ch_mult))):
             out_ch = ch * mult
@@ -221,6 +231,7 @@ class UNet(nn.Module):
                 self.upblocks.append(UpSample(now_ch))
         assert len(chs) == 0
 
+        # tail layer control outputs to be 5 channel
         self.tail = nn.Sequential(
             nn.GroupNorm(8, now_ch),
             Swish(),
@@ -244,7 +255,7 @@ class UNet(nn.Module):
         for layer in self.downblocks:
             h = layer(h, temb, cemb)
             hs.append(h)
-        # Middle
+        # Bottleneck
         for layer in self.middleblocks:
             h = layer(h, temb, cemb)
         # Upsampling
