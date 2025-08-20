@@ -6,7 +6,7 @@ from scipy.stats import entropy
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from dataset import FakeData_for_IS
+from utils.dataset import FakeData_for_IS
 
 modelConfig = {
     "batch_size": 128, # batch size
@@ -14,7 +14,7 @@ modelConfig = {
     "device": "cuda:0", # computing device: gpu
     # path of data and labels
     "images_path": r"../data_files/generated_5000damples.npy",
-    "inception_path": r"../Checkpoints/best_inception_epoch.pth"
+    "inception_path": r"../checkpoints/best_inception_epoch.pth"
 }
 
 # load inception for is computing IS score

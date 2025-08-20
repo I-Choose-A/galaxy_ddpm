@@ -4,7 +4,7 @@ import torchvision.models as models
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 
-from dataset import SDSS
+from utils.dataset import SDSS
 
 modelConfig = {
     "epoch": 40, # number of training iteration
@@ -145,7 +145,7 @@ def train_inception():
         if val_acc > best_val_acc:
             best_epoch = epoch
             best_val_acc = val_acc
-            torch.save(inception.state_dict(), "../Checkpoints/best_inception_epoch.pth")
+            torch.save(inception.state_dict(), "../checkpoints/best_inception_epoch.pth")
             print(f"Saved new best model with Val Acc: {val_acc:.2f}%")
 
         # Adjust learning rate
@@ -154,7 +154,7 @@ def train_inception():
     print(f"best epoch is {best_epoch}")
     # Testing
     print("\nTesting on test set...")
-    inception.load_state_dict(torch.load(f"../Checkpoints/best_inception_epoch.pth"))  # Load best model
+    inception.load_state_dict(torch.load(f"../checkpoints/best_inception_epoch.pth"))  # Load best model
     test_acc = evaluate(inception, test_loader, device)
     print(f"Final Test Accuracy: {test_acc:.2f}%")
 

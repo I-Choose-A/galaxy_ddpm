@@ -5,7 +5,7 @@ from scipy.linalg import sqrtm
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from dataset import SDSS_Single_Class, FakeData
+from utils.dataset import SDSS_Single_Class, FakeData
 
 modelConfig = {
     "batch_size": 128, # batch size
@@ -14,7 +14,7 @@ modelConfig = {
     # path of data and labels
     "real_images_path": r"../data_files/sdss.npz",
     "real_label_path": r"../data_files/sdss_morphology_labels.csv",
-    "inception_path": r"../Checkpoints/best_inception_epoch.pth"
+    "inception_path": r"../checkpoints/best_inception_epoch.pth"
 }
 
 

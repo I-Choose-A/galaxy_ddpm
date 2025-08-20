@@ -6,7 +6,7 @@ from torchvision import transforms
 import numpy as np
 from models.diffusion import GaussianDiffusionSampler, GaussianDiffusionTrainer
 from models.unet import UNet
-from dataset import SDSS
+from utils.dataset import SDSS
 
 modelConfig = {
     "state": "train",  # or sampling
@@ -29,9 +29,9 @@ modelConfig = {
     "device": "cuda:0", # computing device: gpu
     # path of loading pretrained model, saved place and dataset path
     "training_load_weight": None,
-    "save_weight_dir": r"Checkpoints/",
+    "save_weight_dir": r"checkpoints/",
     "test_load_weight": None,
-    "sampled_dir": r"SampledImgs/",
+    "sampled_dir": r"sampled_images/",
     "images_path": r"data_files/sdss.npz",
     "conditions_path": r"data_files/sdss_morphology_labels.csv",
 }
