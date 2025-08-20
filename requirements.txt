@@ -1,0 +1,9 @@
+astropy==7.1.0
+kymatio==0.3.0
+matplotlib==3.10.5
+numpy==2.3.2
+pandas==2.3.1
+scipy==1.16.1
+sep==1.4.1
+torch==2.7.1+cu128
+torchvision==0.22.1+cu128
