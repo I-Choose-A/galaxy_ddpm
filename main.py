@@ -28,12 +28,12 @@ modelConfig = {
     "grad_clip": 1., # clip_grad_norm bound
     "device": "cuda:0", # computing device: gpu
     # path of loading pretrained model, saved place and dataset path
-    "training_load_weight": "ckpt_29+9+9_no-transfer_5ch_lr5e-6_conditional.pt",
-    "save_weight_dir": "./Checkpoints/",
-    "test_load_weight": "ckpt_29+9+9_no-transfer_5ch_lr5e-6_conditional.pt",
-    "sampled_dir": "./SampledImgs/",
-    "images_path": r"/home/ucaphey/Scratch/sdss.npz",
-    "conditions_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
+    "training_load_weight": None,
+    "save_weight_dir": r"Checkpoints/",
+    "test_load_weight": None,
+    "sampled_dir": r"SampledImgs/",
+    "images_path": r"data_files/sdss.npz",
+    "conditions_path": r"data_files/sdss_morphology_labels.csv",
 }
 
 

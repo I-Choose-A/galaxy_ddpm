@@ -13,8 +13,8 @@ modelConfig = {
     "num_classes": 5, # number of morphological categories
     "device": "cuda:0", # computing device: gpu
     # path of data and labels
-    "images_path": r"C:/home/ucaphey/Scratch/generated_5000damples.npy",
-    "inception_path": r"/home/ucaphey/Scratch/galaxy_ddpm/Checkpoints/best_inception_epoch.pth"
+    "images_path": r"../data_files/generated_5000damples.npy",
+    "inception_path": r"../Checkpoints/best_inception_epoch.pth"
 }
 
 # load inception for is computing IS score

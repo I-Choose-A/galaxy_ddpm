@@ -12,9 +12,9 @@ modelConfig = {
     "num_classes": 5, # number of morphological categories
     "device": "cuda:0", # computing device: gpu
     # path of data and labels
-    "real_images_path": r"/home/ucaphey/Scratch/sdss.npz",
-    "real_label_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
-    "inception_path": r"/home/ucaphey/Scratch/galaxy_ddpm/Checkpoints/best_inception_epoch.pth"
+    "real_images_path": r"../data_files/sdss.npz",
+    "real_label_path": r"../data_files/sdss_morphology_labels.csv",
+    "inception_path": r"../Checkpoints/best_inception_epoch.pth"
 }
 
 
