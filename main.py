@@ -178,7 +178,7 @@ def sampling():
         real_images_per_class = [9120, 4978, 1000, 3870, 20682]
 
         batch_size = modelConfig["batch_size"]
-        output_dir = os.path.join(modelConfig["sampled_dir"], "fid_batches/using_feature_median")
+        output_dir = os.path.join(modelConfig["sampled_dir"], "batches")
         os.makedirs(output_dir, exist_ok=True)
 
         for class_id, num_real_images in enumerate(real_images_per_class):
