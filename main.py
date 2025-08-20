@@ -28,9 +28,9 @@ modelConfig = {
     "grad_clip": 1., # clip_grad_norm bound
     "device": "cuda:0", # computing device: gpu
     # path of loading pretrained model, saved place and dataset path
-    "training_load_weight": None,
+    "training_load_weight": None, # if not None, continue training from pretrained model
     "save_weight_dir": r"checkpoints/",
-    "test_load_weight": None,
+    "test_load_weight": None, # path of trained model used for sampling new data
     "sampled_dir": r"sampled_images/",
     "images_path": r"./data_files/sdss.npz",
     "conditions_path": r"./data_files/sdss_morphology_labels.csv",
