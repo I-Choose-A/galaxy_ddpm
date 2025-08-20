@@ -10,31 +10,28 @@ from dataset import SDSS
 
 modelConfig = {
     "state": "train",  # or sampling
-    "epoch": 100,
-    "batch_size": 128,
-    "T": 1000,
-    "num_img_channel": 5,
-    "selected_channel": ["u", "g", "r", "i", "z"],
-    "channel": 256,
-    "num_classes": 5,
-    "num_features": 5,
-    "channel_mult": [1, 2, 3, 4],
-    "num_res_blocks": 1,
-    "dropout": 0.1,
-    "lr": 5e-6,
-    "multiplier": 2.,
-    "beta_1": 1e-4,
-    "beta_T": 0.02,
-    "img_size": 64,
-    "grad_clip": 1.,
-    "device": "cuda",
-    "training_load_weight": "ckpt_29_no-transfer_5ch_lr5e-5_conditional.pt",
+    "epoch": 100, # number of training iteration
+    "batch_size": 128, # batch size
+    "T": 1000, # total time step T
+    "num_img_channel": 5, # number of image channels
+    "selected_channel": ["u", "g", "r", "i", "z"], # training model for which channels
+    "channel": 256, # number of channels for resnet block's kernels
+    "num_classes": 5, # number of morphological categories
+    "num_features": 5, # number of physical features
+    "channel_mult": [1, 2, 3, 4], # factor of channels number for U-Net
+    "num_res_blocks": 1, # number of resnet block in a down/upsampling module
+    "dropout": 0.1, # prob of dropout rate
+    "lr": 5e-6, # learning rate
+    "beta_1": 1e-4, # hyperparameter of beta_1
+    "beta_T": 0.02, # hyperparameter of beta_T
+    "img_size": 64, # size of image
+    "grad_clip": 1., # clip_grad_norm bound
+    "device": "cuda:0", # computing device: gpu
+    # path of loading pretrained model, saved place and dataset path
+    "training_load_weight": "ckpt_29+9+9_no-transfer_5ch_lr5e-6_conditional.pt",
     "save_weight_dir": "./Checkpoints/",
-    "test_load_weight": "ckpt_29_no-transfer_5ch_lr5e-5_conditional.pt",
+    "test_load_weight": "ckpt_29+9+9_no-transfer_5ch_lr5e-6_conditional.pt",
     "sampled_dir": "./SampledImgs/",
-    "sampledNoisyImgName": "NoisyNoGuidenceImgs.png",
-    "sampledImgName": "SampledNoGuidenceImgs.png",
-
     "images_path": r"/home/ucaphey/Scratch/sdss.npz",
     "conditions_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
 }

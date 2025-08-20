@@ -7,14 +7,15 @@ from torchvision import transforms
 from dataset import SDSS
 
 modelConfig = {
-    "epoch": 40,
-    "batch_size": 128,
-    "dropout": 0.15,
-    "lr": 5e-6,
-    "num_classes": 5,
-    "img_size": 64,
-    "device": "cuda:0",
+    "epoch": 40, # number of training iteration
+    "batch_size": 128, # batch size
+    "dropout": 0.15, # prob of dropout
+    "lr": 5e-6, # learning rate
+    "num_classes": 5, # number of morphological categories
+    "img_size": 64, # size of image
+    "device": "cuda:0", # computing device: gpu
     "grad_clip": 1., # clip_grad_norm bound
+    # path of data and labels
     "images_path": r"/home/ucaphey/Scratch/sdss.npz",
     "conditions_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
 }

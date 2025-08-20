@@ -9,9 +9,10 @@ from torchvision import transforms
 from dataset import FakeData_for_IS
 
 modelConfig = {
-    "batch_size": 128,
-    "num_classes": 5,
-    "device": "cuda",
+    "batch_size": 128, # batch size
+    "num_classes": 5, # number of morphological categories
+    "device": "cuda:0", # computing device: gpu
+    # path of data and labels
     "images_path": r"C:/home/ucaphey/Scratch/generated_5000damples.npy",
     "inception_path": r"/home/ucaphey/Scratch/galaxy_ddpm/Checkpoints/best_inception_epoch.pth"
 }

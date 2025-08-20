@@ -8,9 +8,10 @@ from torchvision import transforms
 from dataset import SDSS_Single_Class, FakeData
 
 modelConfig = {
-    "batch_size": 128,
-    "num_classes": 5,
-    "device": "cuda",
+    "batch_size": 128, # batch size
+    "num_classes": 5, # number of morphological categories
+    "device": "cuda:0", # computing device: gpu
+    # path of data and labels
     "real_images_path": r"/home/ucaphey/Scratch/sdss.npz",
     "real_label_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
     "inception_path": r"/home/ucaphey/Scratch/galaxy_ddpm/Checkpoints/best_inception_epoch.pth"
