@@ -1,6 +1,6 @@
 #!/bin/bash -l
-#$ -N train_unconditional_ddpm
-#$ -l h_rt=24:0:0
+#$ -N run_ddpm
+#$ -l h_rt=12:0:0
 #$ -cwd
 #$ -l mem=100G
 #$ -l gpu=1
@@ -15,4 +15,6 @@ module load python/miniconda3/24.3.0-0
 source $UCL_CONDA_PATH/etc/profile.d/conda.sh
 conda activate galaxy
 
+# shellcheck disable=SC2164
+cd /home/ucaphey/Scratch/galaxy_ddpm
 python main.py
