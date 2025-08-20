@@ -32,8 +32,8 @@ modelConfig = {
     "save_weight_dir": r"checkpoints/",
     "test_load_weight": None,
     "sampled_dir": r"sampled_images/",
-    "images_path": r"data_files/sdss.npz",
-    "conditions_path": r"data_files/sdss_morphology_labels.csv",
+    "images_path": r"./data_files/sdss.npz",
+    "conditions_path": r"./data_files/sdss_morphology_labels.csv",
 }
 
 

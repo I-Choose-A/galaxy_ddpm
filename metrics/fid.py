@@ -121,7 +121,7 @@ if __name__ == '__main__':
         real_dataloader = DataLoader(sdss_single_class, batch_size=modelConfig["batch_size"], shuffle=False)
 
         fake_images = FakeData(
-            images_path=rf"/home/ucaphey/Scratch/galaxy_ddpm/SampledImgs/results/generated_class_{i}_Median.npy",
+            images_path=rf"../sampled_images/results/generated_class_{i}_Median.npy",
             classification=i,
             transform=fake_transform
         )

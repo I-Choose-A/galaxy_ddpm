@@ -16,8 +16,8 @@ modelConfig = {
     "device": "cuda:0", # computing device: gpu
     "grad_clip": 1., # clip_grad_norm bound
     # path of data and labels
-    "images_path": r"/home/ucaphey/Scratch/sdss.npz",
-    "conditions_path": r"/home/ucaphey/Scratch/sdss_morphology_labels.csv",
+    "images_path": r"../data_file/sdss.npz",
+    "conditions_path": r"../data_file/sdss_morphology_labels.csv",
 }
 
 

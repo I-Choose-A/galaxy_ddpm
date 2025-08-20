@@ -36,14 +36,14 @@ def show_samples():
     for gclass in range(num_classes):
         # load real images
         real_imgs = np.load(
-            rf"SampledImgs/real_images_samples/processed_real_images/sdss_class_{gclass}.npy"
+            rf"../sampled_images/real_images_samples/processed_real_images/sdss_class_{gclass}.npy"
         )
         print(f"[Class {gclass} Real] min: {np.min(real_imgs)}, max: {np.max(real_imgs)}, "
               f"avg: {np.average(real_imgs)}, median: {np.median(real_imgs)}")
 
         # load generated images
         fake_imgs = np.load(
-            rf"SampledImgs/results/generated_class_{gclass}_Median.npy"
+            rf"../sampled_images/results/generated_class_{gclass}_Median.npy"
         )
         print(f"[Class {gclass} Fake] min: {np.min(fake_imgs)}, max: {np.max(fake_imgs)}, "
               f"avg: {np.average(fake_imgs)}, median: {np.median(fake_imgs)}")
